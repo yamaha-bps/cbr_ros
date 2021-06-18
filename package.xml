@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>cbr_ros</name>
+  <version>0.1.0</version>
+  <description>Collection of various mathematical tools</description>
+
+  <author>Thomas Gurriet</author>
+  <maintainer email="thomas.gurriet@hotmail.fr">Thomas Gurriet</maintainer>
+  <license>MIT</license>
+
+  <depend>rclcpp</depend>
+  <depend>geometry_msgs</depend>
+  <depend>eigen</depend>
+  <depend>sophus</depend>
+
+  <buildtool_depend>cmake</buildtool_depend>
+
+  <export>
+    <build_type>cmake</build_type>
+  </export>
+</package>
