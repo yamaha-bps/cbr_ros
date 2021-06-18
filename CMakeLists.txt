@@ -8,10 +8,17 @@ option(BUILD_EXAMPLES "Build examples." OFF)
 option(BUILD_TESTING "Build tests." OFF)
 option(CODE_COVERAGE "Code coverage for tests." OFF)
 
+# uninstall target, has to be before rclcpp otherwise ament exports its own uninstall target
+configure_file(
+	"${CMAKE_CURRENT_SOURCE_DIR}/cmake/uninstall.cmake.in"
+	"${CMAKE_CURRENT_BINARY_DIR}/uninstall.cmake"
+	IMMEDIATE @ONLY)
+add_custom_target(uninstall COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/uninstall.cmake)
+
 find_package(rclcpp REQUIRED)
-find_package(geometry_msgs REQUIRED)
 find_package(Eigen3 3.3 REQUIRED)
 find_package(Sophus REQUIRED)
+find_package(cbr_utils REQUIRED)
 
 # ---------------------------------------------------------------------------------------
 # TARGETS
@@ -28,6 +35,7 @@ INTERFACE
   rclcpp::rclcpp
   Eigen3::Eigen
   Sophus::Sophus
+  cbr_utils::cbr_utils
 )
 
 # ---------------------------------------------------------------------------------------
@@ -116,13 +124,25 @@ if(BUILD_TESTING)
     test/test_msg_utils.cpp
   )
   target_compile_options(${PROJECT_NAME}_msg_utils PRIVATE -Wall -Wextra -Wpedantic)
-  target_link_libraries(${PROJECT_NAME}_msg_utils PRIVATE ${PROJECT_NAME} GTest::Main ${YAML_CPP_LIBRARIES})
+  target_link_libraries(${PROJECT_NAME}_msg_utils PRIVATE ${PROJECT_NAME} GTest::Main)
   gtest_discover_tests(${PROJECT_NAME}_msg_utils)
   if (CODE_COVERAGE)
     target_compile_options(${PROJECT_NAME}_msg_utils PRIVATE -O0 -g --coverage -fno-inline -fno-inline-small-functions -fno-default-inline)
     target_link_libraries(${PROJECT_NAME}_msg_utils PRIVATE --coverage)
   endif()
 
+  # Parameters
+  add_executable(${PROJECT_NAME}_test_parameters
+    test/test_parameters.cpp
+  )
+  target_compile_options(${PROJECT_NAME}_test_parameters PRIVATE -Wall -Wextra -Wpedantic)
+  target_link_libraries(${PROJECT_NAME}_test_parameters PRIVATE ${PROJECT_NAME} GTest::Main)
+  gtest_discover_tests(${PROJECT_NAME}_test_parameters)
+
+  if (CODE_COVERAGE)
+    target_compile_options(${PROJECT_NAME}_test_parameters PRIVATE -O0 -g --coverage -fno-inline -fno-inline-small-functions -fno-default-inline)
+    target_link_libraries(${PROJECT_NAME}_test_parameters PRIVATE --coverage)
+  endif()
 
   # -------------------------------------------------------------------------------------
   # TEST COVERAGE
@@ -136,3 +156,4 @@ if(BUILD_TESTING)
     )
   endif()
 endif()
+

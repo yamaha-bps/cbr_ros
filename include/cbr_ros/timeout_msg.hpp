@@ -4,21 +4,13 @@
 
 #include <rclcpp/rclcpp.hpp>
 
+#include <cbr_utils/type_traits.hpp>
+
 #include <memory>
 #include <utility>
 
 namespace cbr
 {
-
-namespace detail
-{
-// std::shared_ptr
-template<typename>
-struct is_std_shared_ptr : std::false_type {};
-
-template<typename T>
-struct is_std_shared_ptr<std::shared_ptr<T>>: std::true_type {};
-}
 
 struct TimeoutMsgParams
 {
@@ -65,7 +57,7 @@ public:
   void update(T && msg)
   {
     static_assert(
-      detail::is_std_shared_ptr<std::decay_t<T>>::value,
+      is_std_shared_ptr_v<std::decay_t<T>>,
       "Input must be a shared pointer.");
     static_assert(
       std::is_same_v<typename std::decay_t<T>::element_type, msg_t>,

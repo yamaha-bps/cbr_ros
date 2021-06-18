@@ -10,9 +10,9 @@
   <license>MIT</license>
 
   <depend>rclcpp</depend>
-  <depend>geometry_msgs</depend>
   <depend>eigen</depend>
   <depend>sophus</depend>
+  <depend>cbr_utils</depend>
 
   <buildtool_depend>cmake</buildtool_depend>
 
