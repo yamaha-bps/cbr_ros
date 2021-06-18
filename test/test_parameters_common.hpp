@@ -1,5 +1,10 @@
-#include <array>
+// Copyright Yamaha 2021
+// MIT License
+// https://github.com/yamaha-bps/cbr_ros/blob/master/LICENSE
+
 #include <boost/hana/define_struct.hpp>
+
+#include <array>
 #include <string>
 #include <vector>
 
@@ -8,7 +13,7 @@ struct MySubParams
   int i1;
   uint32_t i2;
 
-  bool operator==(const MySubParams & o) const { return i1 == o.i1 && i2 == o.i2; };
+  bool operator==(const MySubParams & o) const {return i1 == o.i1 && i2 == o.i2;}
 };
 
 BOOST_HANA_ADAPT_STRUCT(MySubParams, i1, i2);
@@ -17,7 +22,7 @@ struct MyValue
 {
   int i1, i2;
 
-  bool operator==(const MyValue & o) const { return i1 == o.i1 && i2 == o.i2; }
+  bool operator==(const MyValue & o) const {return i1 == o.i1 && i2 == o.i2;}
 };
 
 BOOST_HANA_ADAPT_STRUCT(MyValue, i1, i2);
@@ -42,9 +47,9 @@ struct MyParams
 
   bool operator==(const MyParams & o) const
   {
-    return i == o.i && d == o.d && f == o.f && b1 == o.b1 && b2 == o.b2 && dvec == o.dvec
-        && svec == o.svec && bvec == o.bvec && cvec == o.cvec && ivec == o.ivec && iarr == o.iarr
-        && mvarr == o.mvarr && sub == o.sub;
+    return i == o.i && d == o.d && f == o.f && b1 == o.b1 && b2 == o.b2 && dvec == o.dvec &&
+           svec == o.svec && bvec == o.bvec && cvec == o.cvec && ivec == o.ivec && iarr == o.iarr &&
+           mvarr == o.mvarr && sub == o.sub;
   }
 };
 
@@ -64,8 +69,8 @@ inline MyParams prm_example{
   /* .iarr = */ {15, 20, -20},
   /* .mvarr = */
   {
-    MyValue{/* .i1 = */ 5, /* .i2 = */ 10},
-    MyValue{/* .i1 = */ 25, /* .i2 = */ 35},
+    MyValue{ /* .i1 = */ 5, /* .i2 = */ 10},
+    MyValue{ /* .i1 = */ 25, /* .i2 = */ 35},
   },
-  /* .sub = */ MySubParams{/* .i1 = */ 1, /* .i2 = */ 2},
+  /* .sub = */ MySubParams{ /* .i1 = */ 1, /* .i2 = */ 2},
 };

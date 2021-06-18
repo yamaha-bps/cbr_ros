@@ -1,4 +1,7 @@
-// Copyright 2020 Yamaha Motor Corporation, USA
+// Copyright Yamaha 2021
+// MIT License
+// https://github.com/yamaha-bps/cbr_ros/blob/master/LICENSE
+
 #ifndef CBR_ROS__TIMEOUT_MSG_HPP_
 #define CBR_ROS__TIMEOUT_MSG_HPP_
 
