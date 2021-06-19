@@ -1,4 +1,4 @@
-name: build_and_test
+name: foxy
 
 on:
   push:
@@ -8,81 +8,26 @@ on:
   workflow_dispatch: ~
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      matrix:
-        os: [ubuntu-20.04]
-        build_type: [Release, Debug]
-        compiler: [{
-          "cc": "gcc",
-          "cxx": "g++"
-         }, {
-          "cc": "clang",
-          "cxx": "clang++"
-        }]
-
-    steps:
-    - uses: actions/checkout@v2
-
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y --no-install-recommends \
-        libboost-dev \
-        libgtest-dev \
-        libyaml-cpp-dev
-
-    - name: Configure CMake
-      run: |
-        cmake -B ${{ github.workspace }}/build \
-        -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-        -DCMAKE_C_COMPILER=${{ matrix.compiler.cc }} \
-        -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} \
-        -DBUILD_TESTING=ON \
-        -DBUILD_EXAMPLES=ON
-
-    - name: Build
-      working-directory: ${{ github.workspace }}/build
-      run: make -j2
-
-    - name: Test
-      working-directory: ${{ github.workspace }}/build
-      run: make test
-
-  testcov:
-    needs: [build]
+  build_and_test:
     runs-on: ubuntu-latest
+    container:
+      image: rostooling/setup-ros-docker:ubuntu-focal-ros-foxy-ros-base-latest
     steps:
-    - uses: actions/checkout@v2
-
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y --no-install-recommends \
-        lcov \
-        libboost-dev \
-        libgtest-dev \
-        libyaml-cpp-dev
-
-    - name: Configure CMake
-      run: |
-        cmake -B ${{ github.workspace }}/build \
-        -DCMAKE_BUILD_TYPE=Debug \
-        -DBUILD_TESTING=ON \
-        -DBUILD_EXAMPLES=OFF \
-        -DCODE_COVERAGE=ON
-
-    - name: Build
-      working-directory: ${{ github.workspace }}/build
-      run: make -j2
-
-    - name: Test
-      working-directory: ${{ github.workspace }}/build
-      run: make test
-
-    - name: Test Coverage
-      working-directory: ${{ github.workspace }}/build
-      run: make testcov
+      - name: Setup directories
+        run: mkdir -p ros_ws/src
+      - name: checkout
+        uses: actions/checkout@v2
+        with:
+          path: ros_ws/src
+      - name: checkout cbr_utils
+        uses: actions/checkout@v2
+        with:
+          repository: yamaha-bps/cbr_utils
+          path: ros_ws/src
+      - name: build and test
+        uses: ros-tooling/action-ros-ci@v0.2
+        with:
+          target-ros2-distro: foxy
+          import-token: ${{ secrets.CI_TOKEN }}
+          package-name: cbr_ros
 

@@ -55,7 +55,6 @@ public:
     update(std::forward<T>(msg));
   }
 
-
   template<typename T>
   void update(T && msg)
   {

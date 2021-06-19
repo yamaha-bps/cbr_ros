@@ -9,10 +9,11 @@
   <maintainer email="thomas.gurriet@hotmail.fr">Thomas Gurriet</maintainer>
   <license>MIT</license>
 
-  <depend>rclcpp</depend>
-  <depend>eigen</depend>
-  <depend>sophus</depend>
+  <depend>boost</depend>
   <depend>cbr_utils</depend>
+  <depend>eigen</depend>
+  <depend>rclcpp</depend>
+  <depend>sophus</depend>
 
   <buildtool_depend>cmake</buildtool_depend>
 
