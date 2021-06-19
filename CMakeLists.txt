@@ -94,9 +94,9 @@ install(
 
 # Generate uninstall file
 configure_file(
-	${CMAKE_CURRENT_SOURCE_DIR}/cmake/uninstall.cmake.in
-	${CMAKE_CURRENT_BINARY_DIR}/uninstall.cmake
-	IMMEDIATE @ONLY
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/uninstall.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/uninstall.cmake
+  IMMEDIATE @ONLY
 )
 
 # ---------------------------------------------------------------------------------------
