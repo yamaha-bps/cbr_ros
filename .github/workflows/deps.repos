@@ -1,5 +1,5 @@
 repositories:
   cbr_utils:
     type: git
-    url: git@github.com:yamaha-bps/cbr_utils.git
+    url: https://github.com/yamaha-bps/cbr_utils.git
     version: master
