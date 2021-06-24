@@ -37,15 +37,6 @@ TEST(Prm, RosBasic)
   ASSERT_EQ(node->get_parameter("namespace.i").as_int(), 3.);
   ASSERT_EQ(node->get_parameter("namespace.d").as_double(), 7.5);
 
-  // undeclare
-  cbr::undeclareParams(*node, "namespace", prm_example);
-
-  ASSERT_FALSE(node->has_parameter("namespace.dvec"));
-  ASSERT_FALSE(node->has_parameter("namespace.i"));
-  ASSERT_FALSE(node->has_parameter("namespace.d"));
-  ASSERT_FALSE(node->has_parameter("namespace.sub.i1"));
-  ASSERT_FALSE(node->has_parameter("namespace.sub.i2"));
-
   rclcpp::shutdown();
 }
 

@@ -138,21 +138,6 @@ void declareParams(rclcpp::Node & node, const std::string & name, const S & val)
 }
 
 /**
- * @brief Undeclare parameters in node
- *
- * @tparam S hana struct
- * @param node where to undeclare parameters
- * @param name parameter name
- * @param val parameter object (values do not matter)
- */
-template<typename S>
-void undeclareParams(rclcpp::Node & node, const std::string & name, const S & val)
-{
-  detail::iterator(
-    name, val, [&node](const auto & pname, const auto &) {node.undeclare_parameter(pname);});
-}
-
-/**
  * @brief Set parameters in node
  *
  * @tparam S hana struct
