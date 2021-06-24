@@ -18,12 +18,12 @@ jobs:
       - name: checkout
         uses: actions/checkout@v2
         with:
-          path: ros_ws/src
+          path: ros_ws/src/cbr_ros
       - name: checkout cbr_utils
         uses: actions/checkout@v2
         with:
           repository: yamaha-bps/cbr_utils
-          path: ros_ws/src
+          path: ros_ws/src/cbr_utils
       - name: build and test
         uses: ros-tooling/action-ros-ci@v0.2
         with:
