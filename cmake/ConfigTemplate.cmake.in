@@ -2,7 +2,6 @@ include(CMakeFindDependencyMacro)
 
 find_package(rclcpp REQUIRED)
 find_package(Eigen3 3.3 REQUIRED)
-find_package(Sophus REQUIRED)
 find_package(cbr_utils REQUIRED)
 
 include(${CMAKE_CURRENT_LIST_DIR}/@CMAKE_PROJECT_NAME@Targets.cmake)

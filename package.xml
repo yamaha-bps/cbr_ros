@@ -13,7 +13,6 @@
   <depend>cbr_utils</depend>
   <depend>eigen</depend>
   <depend>rclcpp</depend>
-  <depend>sophus</depend>
 
   <buildtool_depend>cmake</buildtool_depend>
 

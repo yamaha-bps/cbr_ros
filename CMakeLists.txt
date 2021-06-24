@@ -15,7 +15,6 @@ add_custom_target(
 
 find_package(rclcpp REQUIRED)
 find_package(Eigen3 3.3 REQUIRED)
-find_package(Sophus REQUIRED)
 find_package(cbr_utils REQUIRED)
 
 # ---------------------------------------------------------------------------------------
@@ -32,7 +31,6 @@ target_link_libraries(${PROJECT_NAME}
 INTERFACE
   rclcpp::rclcpp
   Eigen3::Eigen
-  Sophus::Sophus
   cbr_utils::cbr_utils
 )
 

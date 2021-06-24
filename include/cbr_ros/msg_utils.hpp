@@ -6,7 +6,6 @@
 #define CBR_ROS__MSG_UTILS_HPP_
 
 #include <Eigen/Dense>
-#include <sophus/se3.hpp>
 
 #include <builtin_interfaces/msg/time.hpp>
 
@@ -64,20 +63,20 @@ inline Eigen::Quaterniond from_msg(const geometry_msgs::msg::Quaternion & msg)
 }
 
 /**
- * Pose message to Sophus SE3d
+ * Pose message to Eigen transform
  */
 
-inline Sophus::SE3d from_msg(const geometry_msgs::msg::Pose & msg)
+inline Eigen::Isometry3d from_msg(const geometry_msgs::msg::Pose & msg)
 {
-  return Sophus::SE3d(from_msg(msg.orientation), from_msg(msg.position));
+  return Eigen::Isometry3d(Eigen::Translation3d(from_msg(msg.position)) * from_msg(msg.orientation));
 }
 
 /**
- * Transform message to Sophus SE3d
+ * Transform message to Eigen transform
  */
-inline Sophus::SE3d from_msg(const geometry_msgs::msg::Transform & msg)
+inline Eigen::Isometry3d from_msg(const geometry_msgs::msg::Transform & msg)
 {
-  return Sophus::SE3d(from_msg(msg.rotation), from_msg(msg.translation));
+  return Eigen::Isometry3d(Eigen::Translation3d(from_msg(msg.translation)) * from_msg(msg.rotation));
 }
 
 /**
@@ -148,7 +147,7 @@ to_msg(const Eigen::Quaternion<Scalar> & q)
 }
 
 /**
- * Sophus SE3 to Pose/Transform message
+ * Eigen transform to Pose/Transform message
  */
 template<typename T = geometry_msgs::msg::Pose, typename Scalar>
 std::enable_if_t<
@@ -156,17 +155,17 @@ std::enable_if_t<
   std::is_same_v<T, geometry_msgs::msg::Transform>,
   T
 >
-to_msg(const Sophus::SE3<Scalar> & pose)
+to_msg(const Eigen::Transform<Scalar, 3, Eigen::Isometry> & pose)
 {
   T ret;
   if constexpr (std::is_same_v<T, geometry_msgs::msg::Pose>) {
     ret.position = to_msg<geometry_msgs::msg::Point>(pose.translation());
-    ret.orientation = to_msg(pose.unit_quaternion());
+    ret.orientation = to_msg(Eigen::Quaternion<Scalar>(pose.rotation()));
   }
   if constexpr (std::is_same_v<T, geometry_msgs::msg::Transform>)
   {
     ret.translation = to_msg<geometry_msgs::msg::Vector3>(pose.translation());
-    ret.rotation = to_msg(pose.unit_quaternion());
+    ret.rotation = to_msg(Eigen::Quaternion<Scalar>(pose.rotation()));
   }
   return ret;
 }

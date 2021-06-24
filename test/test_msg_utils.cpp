@@ -34,32 +34,24 @@ TEST(MsgUtils, Vec6)
   vec << 1, 2, 3, 4, 5, 6;
 
   ASSERT_LE((cbr::msgs::from_msg(cbr::msgs::to_msg(vec)) - vec).norm(), 1e-10);
-
-  // check that linear speed maps to linear displacement through Sophus exp
-  geometry_msgs::msg::Twist tw;
-  tw.linear.x = 1;
-  auto vel = cbr::msgs::from_msg(tw);
-  auto pose = Sophus::SE3d::exp(vel);
-
-  ASSERT_NEAR(pose.translation().x(), 1, 1e-5);
 }
 
-TEST(MsgUtils, SE3toPose)
+TEST(MsgUtils, ToFromPose)
 {
-  Sophus::SE3d p1 = Sophus::SE3d::rotZ(1.2) * Sophus::SE3d::transY(5);
+  Eigen::Isometry3d p1 = Eigen::Translation3d(5 * Eigen::Vector3d::UnitY()) * Eigen::Quaterniond::UnitRandom();
 
   auto p2 = cbr::msgs::from_msg(cbr::msgs::to_msg<geometry_msgs::msg::Pose>(p1));
 
-  ASSERT_LE((p2.inverse() * p1).log().norm(), 1e-10);
+  ASSERT_TRUE(p1.isApprox(p2));
 }
 
-TEST(MsgUtils, SE2toTransfomr)
+TEST(MsgUtils, ToFromTransform)
 {
-  Sophus::SE3d p1 = Sophus::SE3d::rotZ(1.2) * Sophus::SE3d::transY(5);
+  Eigen::Isometry3d p1 = Eigen::Translation3d(5 * Eigen::Vector3d::UnitY()) * Eigen::Quaterniond::UnitRandom();
 
   auto p2 = cbr::msgs::from_msg(cbr::msgs::to_msg<geometry_msgs::msg::Transform>(p1));
 
-  ASSERT_LE((p2.inverse() * p1).log().norm(), 1e-10);
+  ASSERT_TRUE(p1.isApprox(p2));
 }
 
 TEST(MsgUtils, RosToChrono)
