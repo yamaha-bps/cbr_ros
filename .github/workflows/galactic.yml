@@ -1,0 +1,22 @@
+name: galactic
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch: ~
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-20.04
+    container:
+      image: rostooling/setup-ros-docker:ubuntu-focal-ros-galactic-ros-base-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: build and test
+        uses: ros-tooling/action-ros-ci@v0.2
+        with:
+          package-name: cbr_ros
+          target-ros2-distro: galactic
+          vcs-repo-file-url: ${GITHUB_WORKSPACE}/.github/workflows/deps.repos

@@ -30,3 +30,11 @@
 *.exe
 *.out
 *.app
+
+.cache
+.clangd
+.vscode
+build
+compile-commands.json
+
+
