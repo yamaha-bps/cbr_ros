@@ -1,6 +1,6 @@
 # cbr_ros
 
-[![foxy](https://github.com/yamaha-bps/cbr_ros/actions/workflows/foxy.yaml/badge.svg)](https://github.com/yamaha-bps/cbr_ros/actions/workflows/foxy.yaml) [![galactic](https://github.com/yamaha-bps/cbr_ros/actions/workflows/galactic.yaml/badge.svg)](https://github.com/yamaha-bps/cbr_ros/actions/workflows/galactic.yaml)
+[![foxy](https://github.com/yamaha-bps/cbr_ros/actions/workflows/foxy.yml/badge.svg)](https://github.com/yamaha-bps/cbr_ros/actions/workflows/foxy.yml) [![galactic](https://github.com/yamaha-bps/cbr_ros/actions/workflows/galactic.yml/badge.svg)](https://github.com/yamaha-bps/cbr_ros/actions/workflows/galactic.yml)
 
 Utility headers to make life easier for ROS2 C++ development.
 
