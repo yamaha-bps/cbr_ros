@@ -114,10 +114,7 @@ TEST(Prm, RosVectorOfStructs) {
   for (auto i : Dv) std::cout << i  << " ";
   std::cout << std::endl;
 
-
-  MasterValueT mv_copy;
-  mv_copy.vec_of_str.resize(3);
-  cbr::getParams(*node, "namespace", mv_copy);
+  auto mv_copy = cbr::getParams<MasterValueT>(*node, "namespace");
 
   ASSERT_EQ(mv, mv_copy);
   rclcpp::shutdown();
