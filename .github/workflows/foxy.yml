@@ -23,7 +23,13 @@ jobs:
           colcon-defaults: |
             {
               "build": {
-                "mixin": ["coverage-gcc"]
+                "cmake-args": [
+                  "-DCMAKE_CXX_FLAGS='-O0'",
+                  "-DCMAKE_CXX_FLAGS='-g'",
+                  "-DCMAKE_CXX_FLAGS='--coverage'",
+                  "-DCMAKE_CXX_FLAGS='-fno-inline'",
+                  "-DCMAKE_EXE_LINKER_FLAGS='--coverage'"
+                ]
               }
             }
       - name: upload to codecov
