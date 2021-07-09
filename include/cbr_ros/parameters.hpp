@@ -16,15 +16,17 @@
 
 #include <type_traits>
 
+using namespace boost::hana;
+
 namespace cbr {
 
 namespace detail {
 
 // types that are hana structs
 template<typename T>
-static constexpr bool is_hana_struct_v = boost::hana::Struct<T>::value;
+static constexpr bool is_hana_struct_v = Struct<T>::value;
 
-// types that are directly ROS types
+// primitive ROS types
 template<typename T>
 static constexpr bool is_primitive_ros_param_v =
   std::is_same_v<T,
@@ -69,81 +71,94 @@ struct is_std_array_or_tuple<std::tuple<Ts...>> : std::true_type
 {};
 
 /**
- * @brief Iteration over a vector of (recursive) values that yields a sequence of vectors.
+ * @brief Recursive iteration over a vector of values that yields a sequence of vectors.
  */
 template<typename ValT, typename F>
-void range_iterator(
+void reference_iterator(
   const std::string & name, std::vector<std::reference_wrapper<ValT>> & val, const F & f)
 {
   using RosT = typename ros_type<std::decay_t<ValT>>::type;
 
   if constexpr (!std::is_same_v<RosT, void> && !is_std_vector_v<RosT>) {
-    f(name, val, boost::hana::int_c<1>);
+    f(name, val, int_c<1>);
   } else if constexpr (is_hana_struct_v<ValT>) {
-    boost::hana::for_each(boost::hana::keys(ValT{}), [&](auto key) {
-      using ItemValT  = std::decay_t<decltype(boost::hana::at_key(ValT{}, key))>;
+    for_each(keys(ValT{}), [&](auto key) {
+      using ItemValT  = std::decay_t<decltype(at_key(ValT{}, key))>;
       using CItemValT = std::conditional_t<std::is_const_v<ValT>, const ItemValT, ItemValT>;
 
-      std::string name_i = boost::hana::to<char const *>(key);
+      std::string name_i = to<char const *>(key);
       if (!name.empty()) { name_i = name + "." + name_i; }
 
       std::vector<std::reference_wrapper<CItemValT>> vec_i;
 
       std::transform(
         val.begin(), val.end(), std::back_inserter(vec_i), [&key](ValT & v) -> CItemValT & {
-          return boost::hana::at_key(v, key);
+          return at_key(v, key);
         });
 
-      range_iterator(name_i, vec_i, f);
+      reference_iterator(name_i, vec_i, f);
     });
   } else {
-    static_assert((!std::is_same_v<RosT, void> && !is_std_vector_v<RosT>) || is_hana_struct_v<ValT>, "Invalid type");
+    static_assert((!std::is_same_v<RosT, void> && !is_std_vector_v<RosT>) || is_hana_struct_v<ValT>,
+      "Invalid type");
   }
 }
 
 /**
- * @brief Iteration over a type.
+ * @brief Declare parameters in node
+ *
+ * @tparam S hana struct
+ * @param node where to declare parameters
+ * @param name parameter name
+ * @param val parameter object with values
  */
-template<typename _ValT, typename F>
-void iterator(std::string name, _ValT & val, const F & f)
+template<typename S>
+void declareOrSetParams(
+  rclcpp::Node & node, const std::string & name, const S & val, bool declare = true)
 {
-  using ValT = std::decay_t<_ValT>;
-  using RosT = typename ros_type<ValT>::type;
-  using boost::hana::for_each, boost::hana::int_c;
+  using ValT = std::decay_t<decltype(val)>;
+  using RosT = typename detail::ros_type<ValT>::type;
 
   if constexpr (!std::is_same_v<RosT, void>) {
-    f(name, val, boost::hana::int_c<0>);
-  } else if constexpr (is_hana_struct_v<ValT>) {
-    for_each(boost::hana::keys(val), [&](auto key) {
-      std::string name_i = boost::hana::to<char const *>(key);
+    if (declare) {
+      node.declare_parameter<RosT>(name, static_cast<RosT>(val));
+    } else {
+      node.set_parameter(rclcpp::Parameter(name, static_cast<RosT>(val)));
+    }
+  } else if constexpr (detail::is_hana_struct_v<ValT>) {
+    for_each(keys(val), [&](auto key) {
+      std::string name_i = to<char const *>(key);
       if (!name.empty()) { name_i = name + "." + name_i; }
-      iterator(name_i, boost::hana::at_key(val, key), f);
+      declareOrSetParams(node, name_i, at_key(val, key), declare);
     });
-  } else if constexpr (is_std_array_or_tuple<ValT>::value) {
-    for_each(boost::hana::make_range(int_c<0>, int_c<std::tuple_size<ValT>::value>), [&](auto i) {
+  } else if constexpr (detail::is_std_array_or_tuple<ValT>::value) {
+    for_each(make_range(int_c<0>, int_c<std::tuple_size<ValT>::value>), [&](auto i) {
       std::string name_i = name + "_" + std::to_string(i);
-      iterator(name_i, std::get<i>(val), f);
+      declareOrSetParams(node, name_i, std::get<i>(val), declare);
     });
   } else if constexpr (is_std_vector_v<ValT>) {
+    using VecValT = typename ValT::value_type;
 
-    using VecValT = std::conditional_t<std::is_const_v<_ValT>,
-      const typename ValT::value_type,
-      typename ValT::value_type>;
-
-    if constexpr (!std::is_const_v<_ValT>) {
-      val.resize(3);  // TODO: figure out actual size
-    }
-
-    std::vector<std::reference_wrapper<VecValT>> refs;
+    std::vector<std::reference_wrapper<const VecValT>> refs;
     std::transform(
-      val.begin(), val.end(), std::back_inserter(refs), [](VecValT & x) -> VecValT & { return x; });
+      val.begin(), val.end(), std::back_inserter(refs), [](const VecValT & x) -> const VecValT & {
+        return x;
+      });
 
-    range_iterator(name, refs, f);
-  } else {
-    static_assert(
-      !std::is_same_v<RosT, void> || is_hana_struct_v<ValT> || is_std_array_or_tuple<ValT>::value
-        || is_std_vector_v<ValT>,
-      "Invalid type");
+    detail::reference_iterator(name, refs, [&](const auto & pname, auto pval, auto) {
+      using ValT = typename std::decay_t<decltype(pval)>::value_type::type;
+      using RosT = std::decay_t<typename detail::ros_type<ValT>::type>;
+      std::vector<RosT> tmp;
+      std::transform(pval.begin(), pval.end(), std::back_inserter(tmp), [](auto & x) {
+        return static_cast<RosT>(x);
+      });
+
+      if (declare) {
+        node.declare_parameter<std::vector<RosT>>(pname, tmp);
+      } else {
+        node.set_parameter(rclcpp::Parameter(pname, tmp));
+      }
+    });
   }
 }
 
@@ -154,27 +169,13 @@ void iterator(std::string name, _ValT & val, const F & f)
  *
  * @tparam S hana struct
  * @param node where to declare parameters
- * @parrobo::prmam name parameter name
+ * @param name parameter name
  * @param val parameter object with values
  */
 template<typename S>
 void declareParams(rclcpp::Node & node, const std::string & name, const S & val)
 {
-  detail::iterator(name, val, [&node](const std::string & pname, const auto & pval, auto is_vec) {
-    if constexpr (is_vec == boost::hana::int_c<1>) {
-      using ValT = typename std::decay_t<decltype(pval)>::value_type::type;
-      using RosT = typename detail::ros_type<ValT>::type;
-
-      std::vector<RosT> tmp;
-      std::transform(pval.begin(), pval.end(), std::back_inserter(tmp), [](auto & x) {
-        return static_cast<RosT>(x);
-      });
-      node.declare_parameter(pname, tmp);
-    } else {
-      using RosT = typename detail::ros_type<std::decay_t<decltype(pval)>>::type;
-      node.declare_parameter<RosT>(pname, static_cast<RosT>(pval));
-    }
-  });
+  detail::declareOrSetParams(node, name, val, true);
 }
 
 /**
@@ -188,21 +189,7 @@ void declareParams(rclcpp::Node & node, const std::string & name, const S & val)
 template<typename S>
 void setParams(rclcpp::Node & node, const std::string & name, const S & val)
 {
-  detail::iterator(name, val, [&node](const auto & pname, const auto & pval, auto is_vec) {
-    if constexpr (is_vec == boost::hana::int_c<1>) {
-      using ValT = typename std::decay_t<decltype(pval)>::value_type::type;
-      using RosT = typename detail::ros_type<ValT>::type;
-
-      std::vector<RosT> tmp;
-      std::transform(pval.begin(), pval.end(), std::back_inserter(tmp), [](auto & x) {
-        return static_cast<RosT>(x);
-      });
-      node.set_parameter(pname, tmp);
-    } else {
-      using RosT = typename detail::ros_type<std::decay_t<decltype(pval)>>::type;
-      node.set_parameter(rclcpp::Parameter(pname, static_cast<RosT>(pval)));
-    }
-  });
+  detail::declareOrSetParams(node, name, val, false);
 }
 
 /**
@@ -216,22 +203,47 @@ void setParams(rclcpp::Node & node, const std::string & name, const S & val)
 template<typename S>
 void getParams(const rclcpp::Node & node, const std::string & name, S & val)
 {
-  detail::iterator(name, val, [&](const auto & pname, auto & pval, auto is_vec) {
-    if constexpr (is_vec == boost::hana::int_c<1>) {
+  using ValT = std::decay_t<decltype(val)>;
+  using RosT = typename detail::ros_type<ValT>::type;
+
+  if constexpr (!std::is_same_v<RosT, void>) {
+    val = node.get_parameter(name).get_parameter_value().template get<RosT>();
+  } else if constexpr (detail::is_hana_struct_v<ValT>) {
+    for_each(keys(val), [&](auto key) {
+      std::string name_i = to<char const *>(key);
+      if (!name.empty()) { name_i = name + "." + name_i; }
+      getParams(node, name_i, at_key(val, key));
+    });
+  } else if constexpr (detail::is_std_array_or_tuple<ValT>::value) {
+    for_each(make_range(int_c<0>, int_c<std::tuple_size<ValT>::value>), [&](auto i) {
+      std::string name_i = name + "_" + std::to_string(i);
+      getParams(node, name_i, std::get<i>(val));
+    });
+  } else if constexpr (is_std_vector_v<ValT>) {
+    using VecValT = typename ValT::value_type;
+
+    std::vector<std::reference_wrapper<VecValT>> refs;
+
+    // figure out size of output
+    std::size_t sz = std::numeric_limits<std::size_t>::max();
+    detail::reference_iterator(name, refs, [&](const auto & name, auto pval, auto) {
       using ValT = typename std::decay_t<decltype(pval)>::value_type::type;
       using RosT = std::decay_t<typename detail::ros_type<ValT>::type>;
+      sz         = std::min(sz,
+        node.get_parameter(name).get_parameter_value().template get<std::vector<RosT>>().size());
+    });
+    val.resize(sz);
 
-      const auto tmp =
-        node.get_parameter(pname).get_parameter_value().template get<std::vector<RosT>>();
-      const std::size_t N = std::min<std::size_t>(pval.size(), tmp.size());
-      for (auto i = 0u; i != N; ++i) { pval[i].get() = static_cast<ValT>(tmp[i]); }
-    } else {
-      using ValT = std::decay_t<decltype(pval)>;
-      using RosT = typename detail::ros_type<ValT>::type;
-      pval =
-        static_cast<ValT>(node.get_parameter(pname).get_parameter_value().template get<RosT>());
-    }
-  });
+    // write into output
+    std::transform(
+      val.begin(), val.end(), std::back_inserter(refs), [](VecValT & x) -> VecValT & { return x; });
+    detail::reference_iterator(name, refs, [&](const auto & name, auto pval, auto) {
+      using ValT = typename std::decay_t<decltype(pval)>::value_type::type;
+      using RosT = std::decay_t<typename detail::ros_type<ValT>::type>;
+      auto tmp   = node.get_parameter(name).get_parameter_value().template get<std::vector<RosT>>();
+      for (auto i = 0u; i != sz; ++i) { pval[i].get() = static_cast<ValT>(tmp[i]); }
+    });
+  }
 }
 
 /**

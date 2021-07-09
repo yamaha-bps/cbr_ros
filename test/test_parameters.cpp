@@ -95,27 +95,15 @@ TEST(Prm, RosVectorOfStructs) {
   auto node = std::make_shared<rclcpp::Node>("node");
   cbr::declareParams(*node, "namespace", mv);
 
-  auto prms = node->list_parameters(std::vector<std::string>{}, 5);
-  for (auto name : prms.names) { std::cout << name << std::endl; }
-
-  auto I1v = node->get_parameter("namespace.vec_of_str.i1").as_integer_array();
-  for (auto i : I1v) std::cout << i << " ";
-  std::cout << std::endl;
-
-  auto I2v = node->get_parameter("namespace.vec_of_str.i2").as_integer_array();
-  for (auto i : I2v) std::cout << i << " ";
-  std::cout << std::endl;
-
-  auto Fv = node->get_parameter("namespace.vec_of_str.f").as_double_array();
-  for (auto i : Fv) std::cout << i  << " ";
-  std::cout << std::endl;
-
-  auto Dv = node->get_parameter("namespace.vec_of_str.d").as_double_array();
-  for (auto i : Dv) std::cout << i  << " ";
-  std::cout << std::endl;
-
   auto mv_copy = cbr::getParams<MasterValueT>(*node, "namespace");
-
   ASSERT_EQ(mv, mv_copy);
+
+  mv.vec_of_str[2].i1 = 12345;
+
+  cbr::setParams(*node, "namespace", mv);
+
+  auto mv_copy2 = cbr::getParams<MasterValueT>(*node, "namespace");
+  ASSERT_EQ(mv, mv_copy2);
+
   rclcpp::shutdown();
 }
