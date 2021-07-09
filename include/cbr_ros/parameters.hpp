@@ -27,11 +27,12 @@ static constexpr bool is_hana_struct_v = boost::hana::Struct<T>::value;
 // types that are directly ROS types
 template<typename T>
 static constexpr bool is_primitive_ros_param_v =
-  std::is_same_v<T, bool> || std::is_same_v<T, int64_t>
-  || std::is_same_v<T, double> || std::is_same_v<T, std::string>;
+  std::is_same_v<T,
+    bool> || std::is_same_v<T, int64_t> || std::is_same_v<T, double> || std::is_same_v<T, std::string>;
 
 template<typename T>
-struct is_vector_ros_param : std::false_type {};
+struct is_vector_ros_param : std::false_type
+{};
 
 template<typename T>
 struct is_vector_ros_param<std::vector<T>>
@@ -43,12 +44,12 @@ template<typename T>
 static constexpr bool is_vector_ros_param_v = is_vector_ros_param<T>::value;
 
 template<typename T>
-static constexpr bool is_ros_parameter_v = is_primitive_ros_param_v<T> || is_vector_ros_param_v<T>;
+static constexpr bool is_ros_param_v = is_primitive_ros_param_v<T> || is_vector_ros_param_v<T>;
 
 template<typename T>
 struct ros_type
 {
-  using type = std::conditional_t<is_ros_parameter_v<T>,
+  using type = std::conditional_t<is_ros_param_v<T>,
     T,
     std::conditional_t<std::is_floating_point_v<T>,
       double,
@@ -66,6 +67,35 @@ struct is_std_array_or_tuple<std::array<T, N>> : std::true_type
 template<typename... Ts>
 struct is_std_array_or_tuple<std::tuple<Ts...>> : std::true_type
 {};
+
+template<typename ValT, typename F>
+void range_iterator(
+  const std::string & name, std::vector<std::reference_wrapper<ValT>> & val, const F & f)
+{
+  using RosT = typename ros_type<ValT>::type;
+
+  if constexpr (!std::is_same_v<RosT, void>) {
+    f(name, val);
+  } else if constexpr (is_hana_struct_v<ValT>) {
+    boost::hana::for_each(boost::hana::keys(ValT{}), [&](auto key) {
+      using ItemValT = std::decay_t<decltype(boost::hana::at_key(ValT{}, key))>;
+
+      std::string name_i = boost::hana::to<char const *>(key);
+      if (!name.empty()) { name_i = name + "." + name_i; }
+
+      std::vector<std::reference_wrapper<ItemValT>> vec_i;
+
+      std::transform(
+        val.begin(), val.end(), std::back_inserter(vec_i), [&key](ValT & v) -> ItemValT & {
+          return boost::hana::at_key(v, key);
+        });
+
+      range_iterator(name_i, vec_i, f);
+    });
+  } else {
+    static_assert(!std::is_same_v<RosT, void> || is_hana_struct_v<ValT>, "Invalid type");
+  }
+}
 
 template<typename _ValT, typename F>
 void iterator(std::string name, _ValT & val, const F & f)
@@ -87,43 +117,10 @@ void iterator(std::string name, _ValT & val, const F & f)
       std::string name_i = name + "_" + std::to_string(i);
       iterator(name_i, std::get<i>(val), f);
     });
-  } else if constexpr (is_std_vector<ValT>::value) {
-    // TODO(pettni) convert vector of struct into struct of vectors
-    // Can we call range iterator here?
-    using VecValT = typename ValT::value_type;
-    for_each(boost::hana::keys(VecValT{}), [&](auto) {
-
-    });
+  } else if constexpr (is_std_vector_v<ValT>) {
   } else {
-    static_assert(is_ros_parameter_v<ValT> || !std::is_same_v<RosT, void> || is_hana_struct_v<ValT>,
+    static_assert(!std::is_same_v<RosT, void> || is_hana_struct_v<ValT> || is_std_array_or_tuple<ValT>::value || is_std_vector_v<ValT>,
       "Invalid type");
-  }
-}
-
-template<typename ValT, typename F>
-void range_iterator(const std::string & name, std::vector<std::reference_wrapper<ValT>> & val, const F & f)
-{
-  using RosT = typename ros_type<ValT>::type;
-
-  if constexpr (!std::is_same_v<RosT, void>) {
-    f(name, val);
-  } else if constexpr (is_hana_struct_v<ValT>) {
-    boost::hana::for_each(boost::hana::keys(ValT{}), [&](auto key) {
-      using ItemValT = std::decay_t<decltype(boost::hana::at_key(ValT{}, key))>;
-
-      std::string name_i = boost::hana::to<char const *>(key);
-      if (!name.empty()) { name_i = name + "." + name_i; }
-
-      std::vector<std::reference_wrapper<ItemValT>> vec_i;
-
-      std::transform(val.begin(), val.end(), std::back_inserter(vec_i), [&key](ValT & v) -> ItemValT & {
-        return boost::hana::at_key(v, key);
-      });
-
-      range_iterator(name_i, vec_i, f);
-    });
-  } else {
-    static_assert(!std::is_same_v<RosT, void> || is_hana_struct_v<ValT>, "Invalid type");
   }
 }
 
@@ -211,16 +208,18 @@ S getParams(const rclcpp::Node & node, std::string name = "")
 template<typename It>
 void declare_range(rclcpp::Node & node, const std::string & name, It beg, It end)
 {
-  using OuterValT = std::decay_t<typename std::iterator_traits<It>::value_type>;
-  std::vector<std::reference_wrapper<OuterValT>> tmp_outer;
-  std::transform(beg, end, std::back_inserter(tmp_outer), [] (OuterValT & x) -> OuterValT & {return x;});
+  using OValT = std::decay_t<typename std::iterator_traits<It>::value_type>;
+  std::vector<std::reference_wrapper<OValT>> refs;
+  std::transform(beg, end, std::back_inserter(refs), [](OValT & x) -> OValT & { return x; });
 
-  detail::range_iterator(name, tmp_outer, [&node](const auto & pname, auto & val_refs) {
+  detail::range_iterator(name, refs, [&node](const auto & pname, auto & val_refs) {
     using ValT = typename std::decay_t<decltype(val_refs)>::value_type::type;
     using RosT = typename detail::ros_type<ValT>::type;
 
     std::vector<RosT> tmp;
-    std::transform(val_refs.begin(), val_refs.end(), std::back_inserter(tmp), [](auto & x) { return static_cast<RosT>(x); });
+    std::transform(val_refs.begin(), val_refs.end(), std::back_inserter(tmp), [](auto & x) {
+      return static_cast<RosT>(x);
+    });
     node.declare_parameter(pname, tmp);
   });
 }
@@ -237,16 +236,17 @@ void declare_range(rclcpp::Node & node, const std::string & name, It beg, It end
 template<typename It>
 void get_range(const rclcpp::Node & node, const std::string & name, It beg, It end)
 {
-  detail::range_iterator(name, beg, end, [&](const auto & pname, auto vbeg, auto vend) {
-    using ValT = std::decay_t<typename std::iterator_traits<decltype(vbeg)>::value_type::type>;
+  using OValT = std::decay_t<typename std::iterator_traits<It>::value_type>;
+  std::vector<std::reference_wrapper<OValT>> refs;
+  std::transform(beg, end, std::back_inserter(refs), [](OValT & x) -> OValT & { return x; });
+
+  detail::range_iterator(name, refs, [&](const auto & pname, auto & val_refs) {
+    using ValT = typename std::decay_t<decltype(val_refs)>::value_type::type;
     using RosT = typename detail::ros_type<ValT>::type;
-    const auto tmp =
-      node.get_parameter(pname).get_parameter_value().template get<std::vector<RosT>>();
-    const std::size_t N = std::min<std::size_t>(vend - vbeg, tmp.size());
-    for (auto i = 0u; i != N; ++i) {
-      vbeg->get() = static_cast<ValT>(tmp[i]);
-      ++vbeg;
-    }
+
+    const auto tmp = node.get_parameter(pname).get_parameter_value().template get<std::vector<RosT>>();
+    const std::size_t N = std::min<std::size_t>(val_refs.size(), tmp.size());
+    for (auto i = 0u; i != N; ++i) { val_refs[i].get() = static_cast<ValT>(tmp[i]); }
   });
 }
 

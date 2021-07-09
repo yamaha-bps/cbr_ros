@@ -60,22 +60,22 @@ struct ValueT
   float f;
   double d;
 
-  // SubValueT sub;
+  SubValueT sub;
 
   bool operator==(const ValueT & o) const
   {
-    return i1 == o.i1 && i2 == o.i2 && f == o.f && d == o.d; // && sub == o.sub;
+    return i1 == o.i1 && i2 == o.i2 && f == o.f && d == o.d && sub == o.sub;
   }
 };
 
 BOOST_HANA_ADAPT_STRUCT(SubValueT, subd);
-BOOST_HANA_ADAPT_STRUCT(ValueT, i1, i2, f, d);
+BOOST_HANA_ADAPT_STRUCT(ValueT, i1, i2, f, d, sub);
 
 TEST(Prm, RosVectorOfStructs) {
   std::vector<ValueT> v;
-  v.push_back(ValueT{1, 2, 0.1, 3.12});
-  v.push_back(ValueT{3, 4, 0.2, 6.12});
-  v.push_back(ValueT{5, 6, 0.3, 9.12});
+  v.push_back(ValueT{1, 2, 0.1, 3.12, SubValueT{-1}});
+  v.push_back(ValueT{3, 4, 0.2, 6.12, SubValueT{-2}});
+  v.push_back(ValueT{5, 6, 0.3, 9.12, SubValueT{-3}});
 
   rclcpp::init(0, nullptr);
   auto node = std::make_shared<rclcpp::Node>("node");
@@ -100,18 +100,25 @@ TEST(Prm, RosVectorOfStructs) {
   for (auto i : Dv) std::cout << i  << " ";
   std::cout << std::endl;
 
-  /* std::vector<ValueT> v_copy;
+  std::vector<ValueT> v_copy;
   v_copy.resize(3);
   cbr::get_range(*node, "namespace", v_copy.begin(), v_copy.end());
 
-  std::cout << v_copy[0].i1;
-  std::cout << v_copy[0].i2;
-  std::cout << v_copy[0].d;
+  std::cout << v_copy[0].i1 << " ";
+  std::cout << v_copy[0].i2 << " ";
+  std::cout << v_copy[0].d << " ";
+  std::cout << v_copy[0].sub.subd << std::endl;
 
-  std::cout << v_copy[1].i1;
-  std::cout << v_copy[1].i2;
-  std::cout << v_copy[1].d;
+  std::cout << v_copy[1].i1 << " ";
+  std::cout << v_copy[1].i2 << " ";
+  std::cout << v_copy[1].d << " ";
+  std::cout << v_copy[1].sub.subd << std::endl;
 
-  ASSERT_EQ(v, v_copy); */
+  std::cout << v_copy[2].i1 << " ";
+  std::cout << v_copy[2].i2 << " ";
+  std::cout << v_copy[2].d << " ";
+  std::cout << v_copy[2].sub.subd << std::endl;
+
+  ASSERT_EQ(v, v_copy);
   rclcpp::shutdown();
 }
