@@ -68,8 +68,20 @@ struct ValueT
   }
 };
 
+struct MasterValueT
+{
+  std::vector<ValueT> vec_of_str;
+  int i0;
+
+  bool operator==(const MasterValueT & o) const
+  {
+    return vec_of_str == o.vec_of_str && i0 == o.i0;
+  }
+};
+
 BOOST_HANA_ADAPT_STRUCT(SubValueT, subd);
 BOOST_HANA_ADAPT_STRUCT(ValueT, i1, i2, f, d, sub);
+BOOST_HANA_ADAPT_STRUCT(MasterValueT, vec_of_str, i0);
 
 TEST(Prm, RosVectorOfStructs) {
   std::vector<ValueT> v;
@@ -77,48 +89,36 @@ TEST(Prm, RosVectorOfStructs) {
   v.push_back(ValueT{3, 4, 0.2, 6.12, SubValueT{-2}});
   v.push_back(ValueT{5, 6, 0.3, 9.12, SubValueT{-3}});
 
+  MasterValueT mv{v, 5};
+
   rclcpp::init(0, nullptr);
   auto node = std::make_shared<rclcpp::Node>("node");
-  cbr::declare_range(*node, "namespace", v.begin(), v.end());
+  cbr::declareParams(*node, "namespace", mv);
 
   auto prms = node->list_parameters(std::vector<std::string>{}, 5);
   for (auto name : prms.names) { std::cout << name << std::endl; }
 
-  auto I1v = node->get_parameter("namespace.i1").as_integer_array();
+  auto I1v = node->get_parameter("namespace.vec_of_str.i1").as_integer_array();
   for (auto i : I1v) std::cout << i << " ";
   std::cout << std::endl;
 
-  auto I2v = node->get_parameter("namespace.i2").as_integer_array();
+  auto I2v = node->get_parameter("namespace.vec_of_str.i2").as_integer_array();
   for (auto i : I2v) std::cout << i << " ";
   std::cout << std::endl;
 
-  auto Fv = node->get_parameter("namespace.f").as_double_array();
+  auto Fv = node->get_parameter("namespace.vec_of_str.f").as_double_array();
   for (auto i : Fv) std::cout << i  << " ";
   std::cout << std::endl;
 
-  auto Dv = node->get_parameter("namespace.d").as_double_array();
+  auto Dv = node->get_parameter("namespace.vec_of_str.d").as_double_array();
   for (auto i : Dv) std::cout << i  << " ";
   std::cout << std::endl;
 
-  std::vector<ValueT> v_copy;
-  v_copy.resize(3);
-  cbr::get_range(*node, "namespace", v_copy.begin(), v_copy.end());
 
-  std::cout << v_copy[0].i1 << " ";
-  std::cout << v_copy[0].i2 << " ";
-  std::cout << v_copy[0].d << " ";
-  std::cout << v_copy[0].sub.subd << std::endl;
+  MasterValueT mv_copy;
+  mv_copy.vec_of_str.resize(3);
+  cbr::getParams(*node, "namespace", mv_copy);
 
-  std::cout << v_copy[1].i1 << " ";
-  std::cout << v_copy[1].i2 << " ";
-  std::cout << v_copy[1].d << " ";
-  std::cout << v_copy[1].sub.subd << std::endl;
-
-  std::cout << v_copy[2].i1 << " ";
-  std::cout << v_copy[2].i2 << " ";
-  std::cout << v_copy[2].d << " ";
-  std::cout << v_copy[2].sub.subd << std::endl;
-
-  ASSERT_EQ(v, v_copy);
+  ASSERT_EQ(mv, mv_copy);
   rclcpp::shutdown();
 }
