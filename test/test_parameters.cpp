@@ -2,18 +2,25 @@
 // MIT License
 // https://github.com/yamaha-bps/cbr_ros/blob/master/LICENSE
 
-
 #include <gtest/gtest.h>
 
 #include <rclcpp/node.hpp>
+#include <rclcpp/parameter_value.hpp>
 
 #include "cbr_ros/parameters.hpp"
 
 #include "test_parameters_common.hpp"
 
+TEST(Prm, Static)
+{
+  static_assert(std::is_same_v<cbr::detail::ros_type<double>::type, double>);
+  static_assert(std::is_same_v<cbr::detail::ros_type<float>::type, double>);
+  static_assert(std::is_same_v<cbr::detail::ros_type<bool>::type, bool>);
+  static_assert(std::is_same_v<cbr::detail::ros_type<int>::type, int64_t>);
+}
+
 TEST(Prm, RosBasic)
 {
-
   rclcpp::init(0, nullptr);
   auto node = std::make_shared<rclcpp::Node>("asdf");
 
@@ -40,49 +47,71 @@ TEST(Prm, RosBasic)
   rclcpp::shutdown();
 }
 
-/* struct SubValueT
+struct SubValueT
 {
   double subd;
 
-  auto operator<=>(const SubValueT &) const = default;
+  bool operator==(const SubValueT & o) const { return subd == o.subd; }
 };
 
 struct ValueT
 {
   int64_t i1, i2;
-  double  d;
+  float f;
+  double d;
 
-  SubValueT sub;
+  // SubValueT sub;
 
-  auto operator<=>(const ValueT &) const = default;
+  bool operator==(const ValueT & o) const
+  {
+    return i1 == o.i1 && i2 == o.i2 && f == o.f && d == o.d; // && sub == o.sub;
+  }
 };
 
 BOOST_HANA_ADAPT_STRUCT(SubValueT, subd);
-BOOST_HANA_ADAPT_STRUCT(ValueT, i1, i2, d, sub); */
+BOOST_HANA_ADAPT_STRUCT(ValueT, i1, i2, f, d);
 
-/* TEST(Prm, RosVectorOfStructs) {
+TEST(Prm, RosVectorOfStructs) {
   std::vector<ValueT> v;
-  v.push_back(ValueT{-5, 5, 3.12, SubValueT{1.2}});
-  v.push_back(ValueT{-15, 15, 6.12, SubValueT{1.2}});
+  v.push_back(ValueT{1, 2, 0.1, 3.12});
+  v.push_back(ValueT{3, 4, 0.2, 6.12});
+  v.push_back(ValueT{5, 6, 0.3, 9.12});
 
   rclcpp::init(0, nullptr);
   auto node = std::make_shared<rclcpp::Node>("node");
-  cbr::declare_range(*node, "namespace", v);
+  cbr::declare_range(*node, "namespace", v.begin(), v.end());
 
   auto prms = node->list_parameters(std::vector<std::string>{}, 5);
   for (auto name : prms.names) { std::cout << name << std::endl; }
 
-  auto x = node->get_parameter("namespace.i2").as_integer_array();
-  for (auto i : x) std::cout << i << std::endl;
+  auto I1v = node->get_parameter("namespace.i1").as_integer_array();
+  for (auto i : I1v) std::cout << i << " ";
+  std::cout << std::endl;
 
-  auto x2 = node->get_parameter("namespace.d").as_double_array();
-  for (auto i : x2) std::cout << i << std::endl;
+  auto I2v = node->get_parameter("namespace.i2").as_integer_array();
+  for (auto i : I2v) std::cout << i << " ";
+  std::cout << std::endl;
 
-  std::vector<ValueT> v_copy;
-  v_copy.resize(2);
-  cbr::get_range(*node, "namespace", v_copy);
+  auto Fv = node->get_parameter("namespace.f").as_double_array();
+  for (auto i : Fv) std::cout << i  << " ";
+  std::cout << std::endl;
 
-  ASSERT_EQ(v, v_copy);
+  auto Dv = node->get_parameter("namespace.d").as_double_array();
+  for (auto i : Dv) std::cout << i  << " ";
+  std::cout << std::endl;
 
+  /* std::vector<ValueT> v_copy;
+  v_copy.resize(3);
+  cbr::get_range(*node, "namespace", v_copy.begin(), v_copy.end());
+
+  std::cout << v_copy[0].i1;
+  std::cout << v_copy[0].i2;
+  std::cout << v_copy[0].d;
+
+  std::cout << v_copy[1].i1;
+  std::cout << v_copy[1].i2;
+  std::cout << v_copy[1].d;
+
+  ASSERT_EQ(v, v_copy); */
   rclcpp::shutdown();
-} */
+}
