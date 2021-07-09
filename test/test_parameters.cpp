@@ -224,7 +224,7 @@ TEST(Prm, RosVectorOfStructsInit)
          != prms.names.end();
   ASSERT_TRUE(f8);
 
-  ASSERT_EQ(prms.names.size(), 9u);  // use_sim_time is always there..
+  ASSERT_GE(prms.names.size(), 9u);  // some standard params are always there..
 
   /* for (auto p : prms.names) {
     std::cout << p << std::endl;
