@@ -71,20 +71,20 @@ struct is_std_array_or_tuple<std::tuple<Ts...>> : std::true_type
 {};
 
 /**
- * @brief Recursive iteration over a vector of values that yields a sequence of vectors.
+ * @brief Recursive iteration over a vector of values that applies f to each unfolded vector.
  */
-template<typename ValT, typename F>
+template<typename Val, typename F>
 void reference_iterator(
-  const std::string & name, std::vector<std::reference_wrapper<ValT>> & val, const F & f)
+  const std::string & name, std::vector<std::reference_wrapper<Val>> & val, const F & f)
 {
-  using RosT = typename ros_type<std::decay_t<ValT>>::type;
+  using RVal = typename ros_type<std::decay_t<Val>>::type;
 
-  if constexpr (!std::is_same_v<RosT, void> && !is_std_vector_v<RosT>) {
-    f(name, val, int_c<1>);
-  } else if constexpr (is_hana_struct_v<ValT>) {
-    for_each(keys(ValT{}), [&](auto key) {
-      using ItemValT  = std::decay_t<decltype(at_key(ValT{}, key))>;
-      using CItemValT = std::conditional_t<std::is_const_v<ValT>, const ItemValT, ItemValT>;
+  if constexpr (!std::is_same_v<RVal, void> && !is_std_vector_v<RVal>) {
+    f(name, val);
+  } else if constexpr (is_hana_struct_v<Val>) {
+    for_each(keys(Val{}), [&](auto key) {
+      using ItemValT  = std::decay_t<decltype(at_key(Val{}, key))>;
+      using CItemValT = std::conditional_t<std::is_const_v<Val>, const ItemValT, ItemValT>;
 
       std::string name_i = to<char const *>(key);
       if (!name.empty()) { name_i = name + "." + name_i; }
@@ -92,71 +92,71 @@ void reference_iterator(
       std::vector<std::reference_wrapper<CItemValT>> vec_i;
 
       std::transform(
-        val.begin(), val.end(), std::back_inserter(vec_i), [&key](ValT & v) -> CItemValT & {
+        val.begin(), val.end(), std::back_inserter(vec_i), [&key](Val & v) -> CItemValT & {
           return at_key(v, key);
         });
 
       reference_iterator(name_i, vec_i, f);
     });
   } else {
-    static_assert((!std::is_same_v<RosT, void> && !is_std_vector_v<RosT>) || is_hana_struct_v<ValT>,
+    static_assert((!std::is_same_v<RVal, void> && !is_std_vector_v<RVal>) || is_hana_struct_v<Val>,
       "Invalid type");
   }
 }
 
 /**
- * @brief Declare parameters in node
+ * @brief Declare or set parameters in n
  *
- * @tparam S hana struct
- * @param node where to declare parameters
+ * @tparam S parameter type
+ * @param n rclcpp::Node
  * @param name parameter name
- * @param val parameter object with values
+ * @param val parameter value
  */
 template<typename S>
 void declareOrSetParams(
-  rclcpp::Node & node, const std::string & name, const S & val, bool declare = true)
+  rclcpp::Node & n, const std::string & name, const S & val, bool declare = true)
 {
-  using ValT = std::decay_t<decltype(val)>;
-  using RosT = typename detail::ros_type<ValT>::type;
+  using Val  = std::decay_t<decltype(val)>;
+  using RVal = typename detail::ros_type<Val>::type;
 
-  if constexpr (!std::is_same_v<RosT, void>) {
+  if constexpr (!std::is_same_v<RVal, void>) {
     if (declare) {
-      node.declare_parameter<RosT>(name, static_cast<RosT>(val));
+      n.declare_parameter<RVal>(name, static_cast<RVal>(val));
     } else {
-      node.set_parameter(rclcpp::Parameter(name, static_cast<RosT>(val)));
+      n.set_parameter(rclcpp::Parameter(name, static_cast<RVal>(val)));
     }
-  } else if constexpr (detail::is_hana_struct_v<ValT>) {
+  } else if constexpr (detail::is_hana_struct_v<Val>) {
     for_each(keys(val), [&](auto key) {
       std::string name_i = to<char const *>(key);
       if (!name.empty()) { name_i = name + "." + name_i; }
-      declareOrSetParams(node, name_i, at_key(val, key), declare);
+      declareOrSetParams(n, name_i, at_key(val, key), declare);
     });
-  } else if constexpr (detail::is_std_array_or_tuple<ValT>::value) {
-    for_each(make_range(int_c<0>, int_c<std::tuple_size<ValT>::value>), [&](auto i) {
+  } else if constexpr (detail::is_std_array_or_tuple<Val>::value) {
+    for_each(make_range(int_c<0>, int_c<std::tuple_size<Val>::value>), [&](auto i) {
       std::string name_i = name + "_" + std::to_string(i);
-      declareOrSetParams(node, name_i, std::get<i>(val), declare);
+      declareOrSetParams(n, name_i, std::get<i>(val), declare);
     });
-  } else if constexpr (is_std_vector_v<ValT>) {
-    using VecValT = typename ValT::value_type;
+  } else if constexpr (is_std_vector_v<Val>) {
+    using VVal = typename Val::value_type;
 
-    std::vector<std::reference_wrapper<const VecValT>> refs;
+    std::vector<std::reference_wrapper<const VVal>> refs;
     std::transform(
-      val.begin(), val.end(), std::back_inserter(refs), [](const VecValT & x) -> const VecValT & {
+      val.begin(), val.end(), std::back_inserter(refs), [](const VVal & x) -> const VVal & {
         return x;
       });
 
-    detail::reference_iterator(name, refs, [&](const auto & pname, auto pval, auto) {
-      using ValT = typename std::decay_t<decltype(pval)>::value_type::type;
-      using RosT = std::decay_t<typename detail::ros_type<ValT>::type>;
-      std::vector<RosT> tmp;
+    detail::reference_iterator(name, refs, [&](const auto & pname, const auto & pval) {
+      using Val  = std::decay_t<typename std::decay_t<decltype(pval)>::value_type::type>;
+      using RVal = typename detail::ros_type<Val>::type;
+      std::vector<RVal> tmp;
       std::transform(pval.begin(), pval.end(), std::back_inserter(tmp), [](auto & x) {
-        return static_cast<RosT>(x);
+        return static_cast<RVal>(x.get());
       });
 
       if (declare) {
-        node.declare_parameter<std::vector<RosT>>(pname, tmp);
+        n.declare_parameter<std::vector<RVal>>(pname, tmp);
       } else {
-        node.set_parameter(rclcpp::Parameter(pname, tmp));
+        n.set_parameter(rclcpp::Parameter(pname, tmp));
       }
     });
   }
@@ -165,100 +165,120 @@ void declareOrSetParams(
 }  // namespace detail
 
 /**
- * @brief Declare parameters in node
+ * @brief Declare parameters in n
  *
- * @tparam S hana struct
- * @param node where to declare parameters
+ * @tparam S parameter type
+ * @param n rclcpp::Node
  * @param name parameter name
- * @param val parameter object with values
+ * @param val parameter value
  */
 template<typename S>
-void declareParams(rclcpp::Node & node, const std::string & name, const S & val)
+void declareParams(rclcpp::Node & n, const std::string & name, const S & val)
 {
-  detail::declareOrSetParams(node, name, val, true);
+  detail::declareOrSetParams(n, name, val, true);
 }
 
 /**
- * @brief Set parameters in node
+ * @brief Set parameters in n
  *
- * @tparam S hana struct
- * @param node where to set parameters
+ * @tparam S parameter type
+ * @param n rclcpp::Node
  * @param name parameter name
- * @param val parameter object with values
+ * @param val parameter value
  */
 template<typename S>
-void setParams(rclcpp::Node & node, const std::string & name, const S & val)
+void setParams(rclcpp::Node & n, const std::string & name, const S & val)
 {
-  detail::declareOrSetParams(node, name, val, false);
+  detail::declareOrSetParams(n, name, val, false);
 }
 
 /**
- * @brief Get parameters from node (inplace version)
+ * @brief Get parameters from n (inplace version)
  *
- * @tparam S hana struct
- * @param[in] node where to get parameters
+ * @tparam S parameter type
+ * @param[in] n rclcpp::Node
  * @param[in] name parameter name
- * @param[out] val parameter object
+ * @param[out] val parameter value
  */
 template<typename S>
-void getParams(const rclcpp::Node & node, const std::string & name, S & val)
+void getParams(const rclcpp::Node & n, const std::string & name, S & val)
 {
-  using ValT = std::decay_t<decltype(val)>;
-  using RosT = typename detail::ros_type<ValT>::type;
+  using Val  = std::decay_t<decltype(val)>;
+  using RVal = typename detail::ros_type<Val>::type;
 
-  if constexpr (!std::is_same_v<RosT, void>) {
-    val = node.get_parameter(name).get_parameter_value().template get<RosT>();
-  } else if constexpr (detail::is_hana_struct_v<ValT>) {
+  if constexpr (!std::is_same_v<RVal, void>) {
+    val = n.get_parameter(name).get_parameter_value().template get<RVal>();
+  } else if constexpr (detail::is_hana_struct_v<Val>) {
     for_each(keys(val), [&](auto key) {
       std::string name_i = to<char const *>(key);
       if (!name.empty()) { name_i = name + "." + name_i; }
-      getParams(node, name_i, at_key(val, key));
+      getParams(n, name_i, at_key(val, key));
     });
-  } else if constexpr (detail::is_std_array_or_tuple<ValT>::value) {
-    for_each(make_range(int_c<0>, int_c<std::tuple_size<ValT>::value>), [&](auto i) {
+  } else if constexpr (detail::is_std_array_or_tuple<Val>::value) {
+    for_each(make_range(int_c<0>, int_c<std::tuple_size<Val>::value>), [&](auto i) {
       std::string name_i = name + "_" + std::to_string(i);
-      getParams(node, name_i, std::get<i>(val));
+      getParams(n, name_i, std::get<i>(val));
     });
-  } else if constexpr (is_std_vector_v<ValT>) {
-    using VecValT = typename ValT::value_type;
+  } else if constexpr (is_std_vector_v<Val>) {
+    using VVal = typename Val::value_type;
 
-    std::vector<std::reference_wrapper<VecValT>> refs;
+    std::vector<std::reference_wrapper<VVal>> refs;
 
     // figure out size of output
     std::size_t sz = std::numeric_limits<std::size_t>::max();
-    detail::reference_iterator(name, refs, [&](const auto & name, auto pval, auto) {
-      using ValT = typename std::decay_t<decltype(pval)>::value_type::type;
-      using RosT = std::decay_t<typename detail::ros_type<ValT>::type>;
-      sz         = std::min(sz,
-        node.get_parameter(name).get_parameter_value().template get<std::vector<RosT>>().size());
+    detail::reference_iterator(name, refs, [&](const auto & name, auto pval) {
+      using Val  = typename std::decay_t<decltype(pval)>::value_type::type;
+      using RVal = std::decay_t<typename detail::ros_type<Val>::type>;
+
+      sz = std::min(
+        sz, n.get_parameter(name).get_parameter_value().template get<std::vector<RVal>>().size());
     });
     val.resize(sz);
 
     // write into output
     std::transform(
-      val.begin(), val.end(), std::back_inserter(refs), [](VecValT & x) -> VecValT & { return x; });
-    detail::reference_iterator(name, refs, [&](const auto & name, auto pval, auto) {
-      using ValT = typename std::decay_t<decltype(pval)>::value_type::type;
-      using RosT = std::decay_t<typename detail::ros_type<ValT>::type>;
-      auto tmp   = node.get_parameter(name).get_parameter_value().template get<std::vector<RosT>>();
-      for (auto i = 0u; i != sz; ++i) { pval[i].get() = static_cast<ValT>(tmp[i]); }
+      val.begin(), val.end(), std::back_inserter(refs), [](VVal & x) -> VVal & { return x; });
+    detail::reference_iterator(name, refs, [&](const auto & name, auto pval) {
+      using Val  = typename std::decay_t<decltype(pval)>::value_type::type;
+      using RVal = std::decay_t<typename detail::ros_type<Val>::type>;
+      auto tmp   = n.get_parameter(name).get_parameter_value().template get<std::vector<RVal>>();
+      for (auto i = 0u; i != sz; ++i) { pval[i].get() = static_cast<Val>(tmp[i]); }
     });
   }
 }
 
 /**
- * @brief Get parameters from node (return value version)
+ * @brief Get parameters from n (return value version)
  *
  * @tparam S hana struct
- * @param node where to read parameters
+ * @param n rclcpp::Node
  * @param name parameter name
- * @return struct with resulting parameter values
+ *
+ * @return parameter value
  */
 template<typename S>
-S getParams(const rclcpp::Node & node, std::string name = "")
+S getParams(const rclcpp::Node & n, const std::string & name = "")
 {
   S val;
-  getParams<S>(node, name, val);
+  getParams<S>(n, name, val);
+  return val;
+}
+
+/**
+ * @brief Declare and get parameters in n
+ *
+ * @tparam S hana struct
+ * @param n rclcpp::Node
+ * @param[in] name parameter name
+ * @param[in, out] parameter default value (in) and current value (out)
+ *
+ * @return parameter value
+ */
+template<typename S>
+S initParams(rclcpp::Node & n, const std::string & name, S & val)
+{
+  declareParams<S>(n, name, val);
+  getParams<S>(n, name, val);
   return val;
 }
 
