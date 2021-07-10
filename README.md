@@ -6,13 +6,13 @@
 
 Utility headers to make life easier for ROS2 C++ development.
 
+* ```parameters```: declare/read/write nested data structures as ROS2 parameters via ```boost::hana``` introspection
 * ```clock_traits_ros```: use ROS clocks with the ```clock_traits``` header from ```cbr_utils```
 * ```msg_utils```: conversions between ROS2 interfaces and ```std::chrono``` and ```Eigen``` types
-* ```parameters```: declare/read/write nested data structures as ROS2 parameters via ```boost::hana``` introspection
 
 ## Parameters
 
-Including `cbr_ros/parameter.hpp` makes it possible to declare whole data structures as ROS parameters.
+Including `cbr_ros/parameters.hpp` makes it possible to declare whole data structures as ROS parameters.
 
 ### Supported data format
 
@@ -27,7 +27,7 @@ Handle nested data structures of
 
 ### Example
 
-For example, consider the following C++ struct
+For example, consider the following C++ struct:
 ```cpp
 struct MyParameters
 {
@@ -36,7 +36,7 @@ struct MyParameters
   std::string s{"3"};
 };
 ```
-Using the [regular API](https://docs.ros2.org/foxy/api/rclcpp/classrclcpp_1_1Node.html) would require three calls each to declare and read those parameters.
+We wish to declare the members of the struct as ROS parameters. Using the [regular rclcpp API](https://docs.ros2.org/foxy/api/rclcpp/classrclcpp_1_1Node.html) would require three calls to declare and three calls to read read those parameters.
 ```cpp
 MyParameters prm{};
 
@@ -48,24 +48,24 @@ prm.d = node->get_parameter("myprm.d").as_double();
 prm.i = node->get_parameter("myprm.i").as_int();
 prm.s = node->get_parameter("myprm.s").as_string();
 ```
-This becomes very verbose for large, nested structures with many parameters.
+This becomes very verbose for large, nested structures.
 
-As an alternative, `declareParams` in `cbr_ros/parameter.hpp` makes it possible to instead deal with the complete structure. The caveat is that it is necessary to register the structure with `boost::hana` to enable data structure introspection.
+As a remedy, `declareParams` in `cbr_ros/parameter.hpp` makes it possible to handle `MyParameters` as a single object. The caveat is that it must first be registered with `boost::hana` to enable data structure introspection.
 ```cpp
 #include <boost/hana/define_struct.hpp>
 
 BOOST_HANA_ADAPT_STRUCT(MyParameters, d, i, s);  // option: register just a subset of the members
 ```
-With introspection enabled parameter handling becomes much more succinct:
+Now parameter handling becomes much more succinct:
 ```cpp
-#include <cbr_ros/parameter.hpp>
+#include <cbr_ros/parameters.hpp>
 
 MyParameters prm{};
 
 cbr::declareParams(*node, "myprm", prm);
 cbr::getParams(*node, "myprm", prm);
 ```
-Even shorter is ```cbr::initParams(*node, "myprm", prm)``` which both declares and reads values.
+Even shorter is ```cbr::initParams(*node, "myprm", prm);``` which both declares and reads values.
 
 ### Nested structures
 
