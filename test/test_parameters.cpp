@@ -50,18 +50,20 @@ struct MyParams
 
   std::array<int, 3> iarr;
   std::array<MyValue, 2> mvarr;
+  std::tuple<double, int> tuple;
   MySubParams sub;
 
   bool operator==(const MyParams & o) const
   {
     return i == o.i && d == o.d && f == o.f && b1 == o.b1 && b2 == o.b2 && dvec == o.dvec
         && s == o.s && svec == o.svec && bvec == o.bvec && cvec == o.cvec && ivec == o.ivec
-        && i32vec == o.i32vec && iarr == o.iarr && mvarr == o.mvarr && sub == o.sub;
+        && i32vec == o.i32vec && iarr == o.iarr && mvarr == o.mvarr && tuple == o.tuple
+        && sub == o.sub;
   }
 };
 
 BOOST_HANA_ADAPT_STRUCT(
-  MyParams, i, d, f, b1, b2, s, dvec, svec, bvec, cvec, ivec, i32vec, iarr, mvarr, sub);
+  MyParams, i, d, f, b1, b2, s, dvec, svec, bvec, cvec, ivec, i32vec, iarr, mvarr, tuple, sub);
 
 inline MyParams prm_example{
   /* .i = */ 2,
@@ -82,6 +84,7 @@ inline MyParams prm_example{
     MyValue{/* .i1 = */ 5, /* .i2 = */ 10},
     MyValue{/* .i1 = */ 25, /* .i2 = */ 35},
   },
+  /* .tpl = */ {1, 2},
   /* .sub = */ MySubParams{/* .i1 = */ 1, /* .i2 = */ 2},
 };
 
@@ -230,6 +233,47 @@ TEST(Prm, RosVectorOfStructsInit)
     std::cout << p << std::endl;
     std::cout << node->get_parameter(p).value_to_string() << std::endl;
   } */
+
+  rclcpp::shutdown();
+}
+
+struct MyParameters
+{
+  double d{1};
+  int i{2};
+  std::string s{"3"};
+};
+
+TEST(Prm, Snippets1)
+{
+  rclcpp::init(0, nullptr);
+  auto node = std::make_shared<rclcpp::Node>("node");
+
+  MyParameters prm;
+
+  node->declare_parameter<double>("myprm.d", prm.d);
+  node->declare_parameter<int>("myprm.i", prm.i);
+  node->declare_parameter<std::string>("myprm.s", prm.s);
+
+  prm.d = node->get_parameter("myprm.d").as_double();
+  prm.i = node->get_parameter("myprm.i").as_int();
+  prm.s = node->get_parameter("myprm.s").as_string();
+
+  rclcpp::shutdown();
+}
+
+BOOST_HANA_ADAPT_STRUCT(MyParameters, d, i, s);  // option: register just a subset of the members
+
+TEST(Prm, Snippets2)
+{
+  rclcpp::init(0, nullptr);
+  auto node = std::make_shared<rclcpp::Node>("node");
+
+  MyParameters prm;
+  cbr::declareParams(*node, "myprm", prm);
+  cbr::getParams(*node, "myprm", prm);
+
+  // cbr::initParams(*node, "myprm", prm);
 
   rclcpp::shutdown();
 }
