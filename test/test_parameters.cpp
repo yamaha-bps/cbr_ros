@@ -2,18 +2,105 @@
 // MIT License
 // https://github.com/yamaha-bps/cbr_ros/blob/master/LICENSE
 
-
+#include <boost/hana/define_struct.hpp>
 #include <gtest/gtest.h>
-
 #include <rclcpp/node.hpp>
+#include <rclcpp/parameter_value.hpp>
+
+#include <array>
+#include <string>
+#include <vector>
 
 #include "cbr_ros/parameters.hpp"
 
-#include "test_parameters_common.hpp"
+struct MySubParams
+{
+  int i1;
+  uint32_t i2;
+
+  bool operator==(const MySubParams & o) const { return i1 == o.i1 && i2 == o.i2; }
+};
+
+BOOST_HANA_ADAPT_STRUCT(MySubParams, i1, i2);
+
+struct MyValue
+{
+  int i1, i2;
+
+  bool operator==(const MyValue & o) const { return i1 == o.i1 && i2 == o.i2; }
+};
+
+BOOST_HANA_ADAPT_STRUCT(MyValue, i1, i2);
+
+struct MyParams
+{
+  int i;
+  double d;
+  float f;
+  bool b1;
+  bool b2;
+  std::string s;
+
+  std::vector<double> dvec;
+  std::vector<std::string> svec;
+  std::vector<bool> bvec;
+  std::vector<uint8_t> cvec;
+  std::vector<int64_t> ivec;
+  std::vector<int> i32vec;
+
+  std::array<int, 3> iarr;
+  std::array<MyValue, 2> mvarr;
+  std::tuple<double, int> tuple;
+  MySubParams sub;
+
+  bool operator==(const MyParams & o) const
+  {
+    return i == o.i && d == o.d && f == o.f && b1 == o.b1 && b2 == o.b2 && dvec == o.dvec
+        && s == o.s && svec == o.svec && bvec == o.bvec && cvec == o.cvec && ivec == o.ivec
+        && i32vec == o.i32vec && iarr == o.iarr && mvarr == o.mvarr && tuple == o.tuple
+        && sub == o.sub;
+  }
+};
+
+BOOST_HANA_ADAPT_STRUCT(
+  MyParams, i, d, f, b1, b2, s, dvec, svec, bvec, cvec, ivec, i32vec, iarr, mvarr, tuple, sub);
+
+inline MyParams prm_example{
+  /* .i = */ 2,
+  /* .d = */ 5.55,
+  /* .f = */ -3.14,
+  /* .b1 = */ false,
+  /* .b2 = */ true,
+  /* .s = */ "hello",
+  /* .dvec = */ {1, 2, 3, 5},
+  /* .svec = */ {"hej", "stringvec"},
+  /* .bvec = */ {false, true, false, false},
+  /* .cvec = */ {uint8_t{0}, uint8_t{26}, uint8_t{101}},
+  /* .ivec = */ {1237891, -1241, 123},
+  /* .i32vec = */ {1231, 1241, -123},
+  /* .iarr = */ {15, 20, -20},
+  /* .mvarr = */
+  {
+    MyValue{/* .i1 = */ 5, /* .i2 = */ 10},
+    MyValue{/* .i1 = */ 25, /* .i2 = */ 35},
+  },
+  /* .tpl = */ {1, 2},
+  /* .sub = */ MySubParams{/* .i1 = */ 1, /* .i2 = */ 2},
+};
+
+TEST(Prm, Static)
+{
+  static_assert(std::is_same_v<cbr::detail::ros_type<double>::type, double>);
+  static_assert(std::is_same_v<cbr::detail::ros_type<float>::type, double>);
+  static_assert(std::is_same_v<cbr::detail::ros_type<bool>::type, bool>);
+  static_assert(std::is_same_v<cbr::detail::ros_type<int>::type, int64_t>);
+  static_assert(std::is_same_v<cbr::detail::ros_type<std::string>::type, std::string>);
+  static_assert(
+    std::is_same_v<cbr::detail::ros_type<std::__cxx11::basic_string<char>>::type, std::string>);
+}
 
 TEST(Prm, RosBasic)
 {
-
   rclcpp::init(0, nullptr);
   auto node = std::make_shared<rclcpp::Node>("asdf");
 
@@ -40,49 +127,153 @@ TEST(Prm, RosBasic)
   rclcpp::shutdown();
 }
 
-/* struct SubValueT
+struct SubValueT
 {
   double subd;
+  uint32_t i;
+  std::string s;
 
-  auto operator<=>(const SubValueT &) const = default;
+  bool operator==(const SubValueT & o) const { return subd == o.subd && s == o.s; }
 };
 
 struct ValueT
 {
   int64_t i1, i2;
-  double  d;
+  float f;
+  double d;
 
   SubValueT sub;
 
-  auto operator<=>(const ValueT &) const = default;
+  bool operator==(const ValueT & o) const
+  {
+    return i1 == o.i1 && i2 == o.i2 && f == o.f && d == o.d && sub == o.sub;
+  }
 };
 
-BOOST_HANA_ADAPT_STRUCT(SubValueT, subd);
-BOOST_HANA_ADAPT_STRUCT(ValueT, i1, i2, d, sub); */
+struct MasterValueT
+{
+  std::vector<ValueT> vec_of_tpl;
+  int i0;
 
-/* TEST(Prm, RosVectorOfStructs) {
+  bool operator==(const MasterValueT & o) const { return vec_of_tpl == o.vec_of_tpl && i0 == o.i0; }
+};
+
+BOOST_HANA_ADAPT_STRUCT(SubValueT, subd, i, s);
+BOOST_HANA_ADAPT_STRUCT(ValueT, i1, i2, f, d, sub);
+BOOST_HANA_ADAPT_STRUCT(MasterValueT, vec_of_tpl, i0);
+
+TEST(Prm, RosVectorOfStructs)
+{
   std::vector<ValueT> v;
-  v.push_back(ValueT{-5, 5, 3.12, SubValueT{1.2}});
-  v.push_back(ValueT{-15, 15, 6.12, SubValueT{1.2}});
+  v.push_back(ValueT{1, 2, 0.1, 3.12, SubValueT{-1, 100, "str1"}});
+  v.push_back(ValueT{3, 4, 0.2, 6.12, SubValueT{-2, 200, "str2"}});
+  v.push_back(ValueT{5, 6, 0.3, 9.12, SubValueT{-3, 300, "str3"}});
+
+  MasterValueT mv{v, 5};
 
   rclcpp::init(0, nullptr);
   auto node = std::make_shared<rclcpp::Node>("node");
-  cbr::declare_range(*node, "namespace", v);
+  cbr::declareParams(*node, "namespace", mv);
 
-  auto prms = node->list_parameters(std::vector<std::string>{}, 5);
-  for (auto name : prms.names) { std::cout << name << std::endl; }
+  auto mv_copy = cbr::getParams<MasterValueT>(*node, "namespace");
+  ASSERT_EQ(mv, mv_copy);
 
-  auto x = node->get_parameter("namespace.i2").as_integer_array();
-  for (auto i : x) std::cout << i << std::endl;
+  mv.vec_of_tpl[2].i1 = 12345;
 
-  auto x2 = node->get_parameter("namespace.d").as_double_array();
-  for (auto i : x2) std::cout << i << std::endl;
+  cbr::setParams(*node, "namespace", mv);
 
-  std::vector<ValueT> v_copy;
-  v_copy.resize(2);
-  cbr::get_range(*node, "namespace", v_copy);
-
-  ASSERT_EQ(v, v_copy);
+  auto mv_copy2 = cbr::getParams<MasterValueT>(*node, "namespace");
+  ASSERT_EQ(mv, mv_copy2);
 
   rclcpp::shutdown();
-} */
+}
+
+TEST(Prm, RosVectorOfStructsInit)
+{
+  std::vector<ValueT> v;
+  v.push_back(ValueT{1, 2, 0.1, 3.12, SubValueT{-1, 100, "str1"}});
+  v.push_back(ValueT{3, 4, 0.2, 6.12, SubValueT{-2, 200, "str2"}});
+  v.push_back(ValueT{5, 6, 0.3, 9.12, SubValueT{-3, 300, "str3"}});
+
+  MasterValueT mv{v, 5};
+
+  rclcpp::init(0, nullptr);
+  auto node = std::make_shared<rclcpp::Node>("node");
+  cbr::initParams(*node, "namespace", mv);
+
+  auto prms = node->list_parameters(std::vector<std::string>{}, 10);
+
+  auto f1 = std::find(prms.names.begin(), prms.names.end(), "namespace.i0") != prms.names.end();
+  ASSERT_TRUE(f1);
+  auto f2 =
+    std::find(prms.names.begin(), prms.names.end(), "namespace.vec_of_tpl.i1") != prms.names.end();
+  ASSERT_TRUE(f2);
+  auto f3 =
+    std::find(prms.names.begin(), prms.names.end(), "namespace.vec_of_tpl.i2") != prms.names.end();
+  ASSERT_TRUE(f3);
+  auto f4 =
+    std::find(prms.names.begin(), prms.names.end(), "namespace.vec_of_tpl.f") != prms.names.end();
+  ASSERT_TRUE(f4);
+  auto f5 =
+    std::find(prms.names.begin(), prms.names.end(), "namespace.vec_of_tpl.d") != prms.names.end();
+  ASSERT_TRUE(f5);
+  auto f6 = std::find(prms.names.begin(), prms.names.end(), "namespace.vec_of_tpl.sub.i")
+         != prms.names.end();
+  ASSERT_TRUE(f6);
+  auto f7 = std::find(prms.names.begin(), prms.names.end(), "namespace.vec_of_tpl.sub.subd")
+         != prms.names.end();
+  ASSERT_TRUE(f7);
+  auto f8 = std::find(prms.names.begin(), prms.names.end(), "namespace.vec_of_tpl.sub.s")
+         != prms.names.end();
+  ASSERT_TRUE(f8);
+
+  ASSERT_GE(prms.names.size(), 9u);  // some standard params are always there..
+
+  /* for (auto p : prms.names) {
+    std::cout << p << std::endl;
+    std::cout << node->get_parameter(p).value_to_string() << std::endl;
+  } */
+
+  rclcpp::shutdown();
+}
+
+struct MyParameters
+{
+  double d{1};
+  int i{2};
+  std::string s{"3"};
+};
+
+TEST(Prm, Snippets1)
+{
+  rclcpp::init(0, nullptr);
+  auto node = std::make_shared<rclcpp::Node>("node");
+
+  MyParameters prm;
+
+  node->declare_parameter<double>("myprm.d", prm.d);
+  node->declare_parameter<int>("myprm.i", prm.i);
+  node->declare_parameter<std::string>("myprm.s", prm.s);
+
+  prm.d = node->get_parameter("myprm.d").as_double();
+  prm.i = node->get_parameter("myprm.i").as_int();
+  prm.s = node->get_parameter("myprm.s").as_string();
+
+  rclcpp::shutdown();
+}
+
+BOOST_HANA_ADAPT_STRUCT(MyParameters, d, i, s);  // option: register just a subset of the members
+
+TEST(Prm, Snippets2)
+{
+  rclcpp::init(0, nullptr);
+  auto node = std::make_shared<rclcpp::Node>("node");
+
+  MyParameters prm;
+  cbr::declareParams(*node, "myprm", prm);
+  cbr::getParams(*node, "myprm", prm);
+
+  // cbr::initParams(*node, "myprm", prm);
+
+  rclcpp::shutdown();
+}

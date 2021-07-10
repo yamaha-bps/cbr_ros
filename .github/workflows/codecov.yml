@@ -1,0 +1,35 @@
+name: codecov
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch: ~
+
+jobs:
+  codecov:
+    runs-on: ubuntu-20.04
+    container:
+      image: rostooling/setup-ros-docker:ubuntu-focal-ros-foxy-ros-base-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: build and test
+        uses: ros-tooling/action-ros-ci@v0.2
+        with:
+          package-name: cbr_ros
+          target-ros2-distro: foxy
+          vcs-repo-file-url: ${GITHUB_WORKSPACE}/.github/workflows/deps.repos
+          colcon-defaults: |
+            {
+              "build": {
+                "mixin": ["coverage-gcc"]
+              }
+            }
+      - name: upload to codecov
+        uses: codecov/codecov-action@v1.5.2
+        with:
+          files: ros_ws/lcov/total_coverage.info
+          flags: unittests
+          name: codecov-umbrella
+
