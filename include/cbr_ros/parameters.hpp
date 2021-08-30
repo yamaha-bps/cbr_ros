@@ -16,15 +16,13 @@
 
 #include <type_traits>
 
-using namespace boost::hana;
-
 namespace cbr {
 
 namespace detail {
 
 // types that are hana structs
 template<typename T>
-static constexpr bool is_hana_struct_v = Struct<T>::value;
+static constexpr bool is_hana_struct_v = boost::hana::Struct<T>::value;
 
 // primitive ROS types
 template<typename T>
@@ -82,18 +80,18 @@ void reference_iterator(
   if constexpr (!std::is_same_v<RVal, void> && !is_std_vector_v<RVal>) {
     f(name, val);
   } else if constexpr (is_hana_struct_v<Val>) {
-    for_each(keys(Val{}), [&](auto key) {
-      using ItemValT  = std::decay_t<decltype(at_key(Val{}, key))>;
+    boost::hana::for_each(boost::hana::keys(Val{}), [&](auto key) {
+      using ItemValT  = std::decay_t<decltype(boost::hana::at_key(Val{}, key))>;
       using CItemValT = std::conditional_t<std::is_const_v<Val>, const ItemValT, ItemValT>;
 
-      std::string name_i = to<char const *>(key);
+      std::string name_i = boost::hana::to<char const *>(key);
       if (!name.empty()) { name_i = name + "." + name_i; }
 
       std::vector<std::reference_wrapper<CItemValT>> vec_i;
 
       std::transform(
         val.begin(), val.end(), std::back_inserter(vec_i), [&key](Val & v) -> CItemValT & {
-          return at_key(v, key);
+          return boost::hana::at_key(v, key);
         });
 
       reference_iterator(name_i, vec_i, f);
@@ -126,13 +124,13 @@ void declareOrSetParams(
       n.set_parameter(rclcpp::Parameter(name, static_cast<RVal>(val)));
     }
   } else if constexpr (detail::is_hana_struct_v<Val>) {
-    for_each(keys(val), [&](auto key) {
-      std::string name_i = to<char const *>(key);
+    boost::hana::for_each(boost::hana::keys(val), [&](auto key) {
+      std::string name_i = boost::hana::to<char const *>(key);
       if (!name.empty()) { name_i = name + "." + name_i; }
-      declareOrSetParams(n, name_i, at_key(val, key), declare);
+      declareOrSetParams(n, name_i, boost::hana::at_key(val, key), declare);
     });
   } else if constexpr (detail::is_std_array_or_tuple<Val>::value) {
-    for_each(make_range(int_c<0>, int_c<std::tuple_size<Val>::value>), [&](auto i) {
+    boost::hana::for_each(boost::hana::make_range(boost::hana::int_c<0>, boost::hana::int_c<std::tuple_size<Val>::value>), [&](auto i) {
       std::string name_i = name + "_" + std::to_string(i);
       declareOrSetParams(n, name_i, std::get<i>(val), declare);
     });
@@ -209,13 +207,13 @@ void getParams(const rclcpp::Node & n, const std::string & name, S & val)
   if constexpr (!std::is_same_v<RVal, void>) {
     val = n.get_parameter(name).get_parameter_value().template get<RVal>();
   } else if constexpr (detail::is_hana_struct_v<Val>) {
-    for_each(keys(val), [&](auto key) {
-      std::string name_i = to<char const *>(key);
+    boost::hana::for_each(boost::hana::keys(val), [&](auto key) {
+      std::string name_i = boost::hana::to<char const *>(key);
       if (!name.empty()) { name_i = name + "." + name_i; }
-      getParams(n, name_i, at_key(val, key));
+      getParams(n, name_i, boost::hana::at_key(val, key));
     });
   } else if constexpr (detail::is_std_array_or_tuple<Val>::value) {
-    for_each(make_range(int_c<0>, int_c<std::tuple_size<Val>::value>), [&](auto i) {
+    boost::hana::for_each(boost::hana::make_range(boost::hana::int_c<0>, boost::hana::int_c<std::tuple_size<Val>::value>), [&](auto i) {
       std::string name_i = name + "_" + std::to_string(i);
       getParams(n, name_i, std::get<i>(val));
     });
