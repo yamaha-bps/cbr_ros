@@ -99,6 +99,62 @@ TEST(Prm, Static)
     std::is_same_v<cbr::detail::ros_type<std::__cxx11::basic_string<char>>::type, std::string>);
 }
 
+TEST(Prm, Update)
+{
+  MyParams prm = prm_example;
+
+  auto r = cbr::updateParam(rclcpp::Parameter("namespace.i", 4), "namespace", prm);
+  ASSERT_TRUE(r);
+  ASSERT_EQ(prm.i, 4);
+
+  r = cbr::updateParam(rclcpp::Parameter("namespace.does_not_exist", 4), "namespace", prm);
+  ASSERT_FALSE(r);
+
+  r = cbr::updateParam(rclcpp::Parameter("namespace.d", 10.55), "namespace", prm);
+  ASSERT_TRUE(r);
+  ASSERT_EQ(prm.d, 10.55);
+
+  r = cbr::updateParam(
+    rclcpp::Parameter("namespace.dvec", std::vector<double>{-10, -20}), "namespace", prm);
+  ASSERT_TRUE(r);
+  ASSERT_EQ(prm.dvec.size(), 2);
+  ASSERT_EQ(prm.dvec[0], -10);
+  ASSERT_EQ(prm.dvec[1], -20);
+
+  r = cbr::updateParam(
+    rclcpp::Parameter("namespace.svec", std::vector<std::string>{"new", "par", "ams"}),
+    "namespace",
+    prm);
+  ASSERT_TRUE(r);
+  ASSERT_EQ(prm.svec.size(), 3);
+  ASSERT_EQ(prm.svec[0], "new");
+  ASSERT_EQ(prm.svec[1], "par");
+  ASSERT_EQ(prm.svec[2], "ams");
+
+  r = cbr::updateParam(
+    rclcpp::Parameter("namespace.i32vec", std::vector<int64_t>{199, 299}), "namespace", prm);
+  ASSERT_EQ(prm.i32vec.size(), 2);
+  ASSERT_TRUE(r);
+  ASSERT_EQ(prm.i32vec[0], 199);
+  ASSERT_EQ(prm.i32vec[1], 299);
+
+  r = cbr::updateParam(rclcpp::Parameter("namespace.mvarr_0.i1", 55), "namespace", prm);
+  ASSERT_TRUE(r);
+  r = cbr::updateParam(rclcpp::Parameter("namespace.mvarr_1.i2", -55), "namespace", prm);
+  ASSERT_TRUE(r);
+  ASSERT_EQ(prm.mvarr[0].i1, 55);
+  ASSERT_EQ(prm.mvarr[1].i2, -55);
+
+  r = cbr::updateParam(rclcpp::Parameter("namespace.tuple_0", 11.5), "namespace", prm);
+  ASSERT_TRUE(r);
+  r = cbr::updateParam(rclcpp::Parameter("namespace.tuple_1", 22), "namespace", prm);
+  ASSERT_TRUE(r);
+  r = cbr::updateParam(rclcpp::Parameter("namespace.tuple_2", 33.), "namespace", prm);
+  ASSERT_FALSE(r);
+  ASSERT_EQ(std::get<0>(prm.tuple), 11.5);
+  ASSERT_EQ(std::get<1>(prm.tuple), 22);
+}
+
 TEST(Prm, RosBasic)
 {
   rclcpp::init(0, nullptr);
@@ -161,6 +217,50 @@ struct MasterValueT
 BOOST_HANA_ADAPT_STRUCT(SubValueT, subd, i, s);
 BOOST_HANA_ADAPT_STRUCT(ValueT, i1, i2, f, d, sub);
 BOOST_HANA_ADAPT_STRUCT(MasterValueT, vec_of_tpl, i0);
+
+TEST(Prm, UpdateVectorOfStructs)
+{
+  std::vector<ValueT> v;
+  v.push_back(ValueT{1, 2, 0.1, 3.12, SubValueT{-1, 100, "str1"}});
+  v.push_back(ValueT{3, 4, 0.2, 6.12, SubValueT{-2, 200, "str2"}});
+  v.push_back(ValueT{5, 6, 0.3, 9.12, SubValueT{-3, 300, "str3"}});
+  MasterValueT mv{v, 5};
+
+  auto r = cbr::updateParam(
+    rclcpp::Parameter("namespace.vec_of_tpl.i3", std::vector<int>{10, 20, 30}), "namespace", mv);
+  ASSERT_FALSE(r);
+
+  r = cbr::updateParam(
+    rclcpp::Parameter("namespace.vec_of_tpl.i1", std::vector<int>{10, 20, 30}), "namespace", mv);
+  ASSERT_TRUE(r);
+  ASSERT_EQ(mv.vec_of_tpl.size(), 3);
+  ASSERT_EQ(mv.vec_of_tpl[0].i1, 10);
+  ASSERT_EQ(mv.vec_of_tpl[1].i1, 20);
+  ASSERT_EQ(mv.vec_of_tpl[2].i1, 30);
+  ASSERT_EQ(mv.vec_of_tpl[0].i2, 2);
+  ASSERT_EQ(mv.vec_of_tpl[1].i2, 4);
+  ASSERT_EQ(mv.vec_of_tpl[2].i2, 6);
+
+  r = cbr::updateParam(
+    rclcpp::Parameter("namespace.vec_of_tpl.i1", std::vector<int>{40, 50}), "namespace", mv);
+  ASSERT_TRUE(r);
+  ASSERT_EQ(mv.vec_of_tpl.size(), 2);
+  ASSERT_EQ(mv.vec_of_tpl[0].i1, 40);
+  ASSERT_EQ(mv.vec_of_tpl[1].i1, 50);
+  ASSERT_EQ(mv.vec_of_tpl[0].i2, 2);
+  ASSERT_EQ(mv.vec_of_tpl[1].i2, 4);
+
+  // reset
+  mv = MasterValueT{v, 5};
+
+  r = cbr::updateParam(
+    rclcpp::Parameter("namespace.vec_of_tpl.sub.s", std::vector<std::string>{"new", "par", "ams"}), "namespace", mv);
+  ASSERT_TRUE(r);
+  ASSERT_EQ(mv.vec_of_tpl.size(), 3);
+  ASSERT_EQ(mv.vec_of_tpl[0].sub.s, "new");
+  ASSERT_EQ(mv.vec_of_tpl[1].sub.s, "par");
+  ASSERT_EQ(mv.vec_of_tpl[2].sub.s, "ams");
+}
 
 TEST(Prm, RosVectorOfStructs)
 {

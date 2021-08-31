@@ -130,10 +130,12 @@ void declareOrSetParams(
       declareOrSetParams(n, name_i, boost::hana::at_key(val, key), declare);
     });
   } else if constexpr (detail::is_std_array_or_tuple<Val>::value) {
-    boost::hana::for_each(boost::hana::make_range(boost::hana::int_c<0>, boost::hana::int_c<std::tuple_size<Val>::value>), [&](auto i) {
-      std::string name_i = name + "_" + std::to_string(i);
-      declareOrSetParams(n, name_i, std::get<i>(val), declare);
-    });
+    boost::hana::for_each(boost::hana::make_range(
+                            boost::hana::int_c<0>, boost::hana::int_c<std::tuple_size<Val>::value>),
+      [&](auto i) {
+        std::string name_i = name + "_" + std::to_string(i);
+        declareOrSetParams(n, name_i, std::get<i>(val), declare);
+      });
   } else if constexpr (is_std_vector_v<Val>) {
     using VVal = typename Val::value_type;
 
@@ -213,10 +215,12 @@ void getParams(const rclcpp::Node & n, const std::string & name, S & val)
       getParams(n, name_i, boost::hana::at_key(val, key));
     });
   } else if constexpr (detail::is_std_array_or_tuple<Val>::value) {
-    boost::hana::for_each(boost::hana::make_range(boost::hana::int_c<0>, boost::hana::int_c<std::tuple_size<Val>::value>), [&](auto i) {
-      std::string name_i = name + "_" + std::to_string(i);
-      getParams(n, name_i, std::get<i>(val));
-    });
+    boost::hana::for_each(boost::hana::make_range(
+                            boost::hana::int_c<0>, boost::hana::int_c<std::tuple_size<Val>::value>),
+      [&](auto i) {
+        std::string name_i = name + "_" + std::to_string(i);
+        getParams(n, name_i, std::get<i>(val));
+      });
   } else if constexpr (is_std_vector_v<Val>) {
     using VVal = typename Val::value_type;
 
@@ -224,25 +228,113 @@ void getParams(const rclcpp::Node & n, const std::string & name, S & val)
 
     // figure out size of output
     std::size_t sz = std::numeric_limits<std::size_t>::max();
-    detail::reference_iterator(name, refs, [&](const auto & name, auto pval) {
+    detail::reference_iterator(name, refs, [&](const auto & subname, auto pval) {
       using Val  = typename std::decay_t<decltype(pval)>::value_type::type;
       using RVal = std::decay_t<typename detail::ros_type<Val>::type>;
-
-      sz = std::min(
-        sz, n.get_parameter(name).get_parameter_value().template get<std::vector<RVal>>().size());
+      sz = std::min(sz,
+        n.get_parameter(subname).get_parameter_value().template get<std::vector<RVal>>().size());
     });
     val.resize(sz);
 
-    // write into output
+    // insert references
     std::transform(
       val.begin(), val.end(), std::back_inserter(refs), [](VVal & x) -> VVal & { return x; });
-    detail::reference_iterator(name, refs, [&](const auto & name, auto pval) {
+
+    // write into output
+    detail::reference_iterator(name, refs, [&](const auto & subname, auto pval) {
       using Val  = typename std::decay_t<decltype(pval)>::value_type::type;
       using RVal = std::decay_t<typename detail::ros_type<Val>::type>;
-      auto tmp   = n.get_parameter(name).get_parameter_value().template get<std::vector<RVal>>();
+      const auto tmp =
+        n.get_parameter(subname).get_parameter_value().template get<std::vector<RVal>>();
       for (auto i = 0u; i != sz; ++i) { pval[i].get() = static_cast<Val>(tmp[i]); }
     });
   }
+}
+
+/**
+ * @brief Update parameter struct from a single rclcpp::Parameter. Useful in parameter callbacks
+ *
+ * @param prm parameter information (contains name and value)
+ * @param name parameter name
+ * @param val parameter struct
+ *
+ * @return true if parameter was updated in val, false otherwise
+ *
+ * Example: Declare parameters and register a parameter callback that updates parameters in a
+ * struct: Params prm{}; cbr::declareParams(*this, "my_ns", prm);
+ *   add_on_set_parameters_callback([this](const std::vector<rclcpp::Parameter> & params) {
+ *     for (const auto & param : params) { cbr::updateParam(param, "my_ns", prm); }
+ *     rcl_interfaces::msg::SetParametersResult res;
+ *     res.successful = true;
+ *     return res;
+ *   });
+ */
+template<typename S>
+bool updateParam(const rclcpp::Parameter & prm, const std::string & name, S & val)
+{
+  using Val  = std::decay_t<decltype(val)>;
+  using RVal = typename cbr::detail::ros_type<Val>::type;
+
+  bool success = false;
+
+  if (prm.get_name().substr(0, name.size()) == name) {
+    if constexpr (!std::is_same_v<RVal, void>) {
+      if (prm.get_name() == name) {
+        val     = prm.get_value<RVal>();
+        success = true;
+      }
+    } else if constexpr (cbr::detail::is_hana_struct_v<Val>) {
+      boost::hana::for_each(boost::hana::keys(val), [&](auto key) {
+        if (!success) {
+          std::string name_i = boost::hana::to<char const *>(key);
+          if (!name.empty()) { name_i = name + "." + name_i; }
+          success |= updateParam(prm, name_i, boost::hana::at_key(val, key));
+        }
+      });
+    } else if constexpr (cbr::detail::is_std_array_or_tuple<Val>::value) {
+      boost::hana::for_each(boost::hana::make_range(boost::hana::int_c<0>,
+                              boost::hana::int_c<std::tuple_size<Val>::value>),
+        [&](auto i) {
+          if (!success) {
+            std::string name_i = name + "_" + std::to_string(i);
+            success |= updateParam(prm, name_i, std::get<i>(val));
+          }
+        });
+    } else if constexpr (cbr::is_std_vector_v<Val>) {
+      using VVal = typename Val::value_type;
+
+      // create vector of references to object
+      std::vector<std::reference_wrapper<VVal>> refs;
+
+      // resize as appropriate
+      std::size_t sz = val.size();
+      detail::reference_iterator(name, refs, [&](const auto & subname, auto pval) {
+        using Val  = typename std::decay_t<decltype(pval)>::value_type::type;
+        using RVal = std::decay_t<typename detail::ros_type<Val>::type>;
+        if (prm.get_name() == subname) {
+          sz = std::min(sz, prm.template get_value<std::vector<RVal>>().size());
+        }
+      });
+      val.resize(sz);
+
+      // insert references
+      std::transform(
+        val.begin(), val.end(), std::back_inserter(refs), [](VVal & x) -> VVal & { return x; });
+
+      // write into output
+      detail::reference_iterator(name, refs, [&](const auto & subname, auto pval) {
+        using Val  = typename std::decay_t<decltype(pval)>::value_type::type;
+        using RVal = std::decay_t<typename detail::ros_type<Val>::type>;
+        if (prm.get_name() == subname) {
+          const auto vec_value = prm.template get_value<std::vector<RVal>>();
+          success              = true;
+          for (auto i = 0u; i != sz; ++i) { pval[i].get() = static_cast<Val>(vec_value[i]); }
+        }
+      });
+    }
+  }
+
+  return success;
 }
 
 /**
