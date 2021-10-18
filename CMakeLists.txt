@@ -4,7 +4,7 @@ project(cbr_ros VERSION 0.1.0)
 include(CTest)
 include(GoogleTest)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # uninstall target has to be before rclcpp otherwise ament exports its own uninstall target

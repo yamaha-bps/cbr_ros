@@ -3,6 +3,7 @@
 // https://github.com/yamaha-bps/cbr_ros/blob/master/LICENSE
 
 #include <boost/hana/define_struct.hpp>
+#include <boost/hana/ext/std.hpp>
 #include <gtest/gtest.h>
 #include <rclcpp/node.hpp>
 #include <rclcpp/parameter_value.hpp>
@@ -12,6 +13,8 @@
 #include <vector>
 
 #include "cbr_ros/parameters.hpp"
+
+static constexpr bool mytest = cbr::detail::is_hana_struct_v<std::tuple<double, int>>;
 
 struct MySubParams
 {

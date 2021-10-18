@@ -14,6 +14,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 
+#include <ranges>
 #include <type_traits>
 
 namespace cbr {
@@ -62,6 +63,10 @@ struct is_std_array_or_tuple : std::false_type
 
 template<typename T, std::size_t N>
 struct is_std_array_or_tuple<std::array<T, N>> : std::true_type
+{};
+
+template<typename T1, typename T2>
+struct is_std_array_or_tuple<std::pair<T1, T2>> : std::true_type
 {};
 
 template<typename... Ts>
@@ -114,8 +119,7 @@ template<typename S>
 void declareOrSetParams(
   rclcpp::Node & n, const std::string & name, const S & val, bool declare = true)
 {
-  using Val  = std::decay_t<decltype(val)>;
-  using RVal = typename detail::ros_type<Val>::type;
+  using RVal = typename detail::ros_type<S>::type;
 
   if constexpr (!std::is_same_v<RVal, void>) {
     if (declare) {
@@ -123,42 +127,56 @@ void declareOrSetParams(
     } else {
       n.set_parameter(rclcpp::Parameter(name, static_cast<RVal>(val)));
     }
-  } else if constexpr (detail::is_hana_struct_v<Val>) {
+  } else if constexpr (detail::is_hana_struct_v<S>) {
     boost::hana::for_each(boost::hana::keys(val), [&](auto key) {
       std::string name_i = boost::hana::to<char const *>(key);
       if (!name.empty()) { name_i = name + "." + name_i; }
       declareOrSetParams(n, name_i, boost::hana::at_key(val, key), declare);
     });
-  } else if constexpr (detail::is_std_array_or_tuple<Val>::value) {
-    boost::hana::for_each(boost::hana::make_range(
-                            boost::hana::int_c<0>, boost::hana::int_c<std::tuple_size<Val>::value>),
+  } else if constexpr (detail::is_std_array_or_tuple<S>::value) {
+    boost::hana::for_each(
+      boost::hana::make_range(boost::hana::int_c<0>, boost::hana::int_c<std::tuple_size<S>::value>),
       [&](auto i) {
         std::string name_i = name + "_" + std::to_string(i);
         declareOrSetParams(n, name_i, std::get<i>(val), declare);
       });
-  } else if constexpr (is_std_vector_v<Val>) {
-    using VVal = typename Val::value_type;
+  } else if constexpr (std::ranges::range<S>) {
+    using RV  = typename std::ranges::range_value_t<S>;
+    using RVRosVal = typename detail::ros_type<RV>::type;
 
-    std::vector<std::reference_wrapper<const VVal>> refs;
-    std::transform(
-      val.begin(), val.end(), std::back_inserter(refs), [](const VVal & x) -> const VVal & {
-        return x;
-      });
-
-    detail::reference_iterator(name, refs, [&](const auto & pname, const auto & pval) {
-      using Val  = std::decay_t<typename std::decay_t<decltype(pval)>::value_type::type>;
-      using RVal = typename detail::ros_type<Val>::type;
-      std::vector<RVal> tmp;
-      std::transform(pval.begin(), pval.end(), std::back_inserter(tmp), [](auto & x) {
-        return static_cast<RVal>(x.get());
-      });
-
+    if constexpr (is_primitive_ros_param_v<RVRosVal>) {
+      // range can be declared directly
+      const std::vector<RVRosVal> tmp(std::ranges::begin(val), std::ranges::end(val));
       if (declare) {
-        n.declare_parameter<std::vector<RVal>>(pname, tmp);
+        n.declare_parameter<std::vector<RVRosVal>>(name, tmp);
       } else {
-        n.set_parameter(rclcpp::Parameter(pname, tmp));
+        n.set_parameter(rclcpp::Parameter(name, tmp));
       }
-    });
+    } else {
+      // got a range of X, must convert to a X of ranges
+      if constexpr (detail::is_hana_struct_v<RV>) {
+        boost::hana::for_each(boost::hana::keys(RV{}), [&](auto key) {
+          using ItemValT     = std::decay_t<decltype(boost::hana::at_key(RV{}, key))>;
+          std::string name_i = boost::hana::to<char const *>(key);
+          if (!name.empty()) { name_i = name + "." + name_i; }
+          declareOrSetParams(n,
+            name_i,
+            std::ranges::views::transform(val, [&](const auto & x) -> const ItemValT & { return boost::hana::at_key(x, key); }),
+            declare);
+        });
+      } else if constexpr (detail::is_std_array_or_tuple<RV>::value) {
+        boost::hana::for_each(boost::hana::make_range(boost::hana::int_c<0>,
+                                boost::hana::int_c<std::tuple_size<RV>::value>),
+          [&](auto i) {
+            using ItemValT     = std::decay_t<std::tuple_element_t<i, RV>>;
+            std::string name_i = name + "_" + std::to_string(i);
+            declareOrSetParams(n,
+              name_i,
+              std::ranges::views::transform(val, [&](const auto & x) -> const ItemValT & { return std::get<i>(val); }),
+              declare);
+          });
+      }
+    }
   }
 }
 
@@ -231,7 +249,7 @@ void getParams(const rclcpp::Node & n, const std::string & name, S & val)
     detail::reference_iterator(name, refs, [&](const auto & subname, auto pval) {
       using Val  = typename std::decay_t<decltype(pval)>::value_type::type;
       using RVal = std::decay_t<typename detail::ros_type<Val>::type>;
-      sz = std::min(sz,
+      sz         = std::min(sz,
         n.get_parameter(subname).get_parameter_value().template get<std::vector<RVal>>().size());
     });
     val.resize(sz);
