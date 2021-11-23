@@ -68,7 +68,9 @@ inline Eigen::Quaterniond from_msg(const geometry_msgs::msg::Quaternion & msg)
 
 inline Eigen::Isometry3d from_msg(const geometry_msgs::msg::Pose & msg)
 {
-  return Eigen::Isometry3d(Eigen::Translation3d(from_msg(msg.position)) * from_msg(msg.orientation));
+  return Eigen::Isometry3d(
+    Eigen::Translation3d(from_msg(msg.position)) *
+    from_msg(msg.orientation));
 }
 
 /**
@@ -76,7 +78,9 @@ inline Eigen::Isometry3d from_msg(const geometry_msgs::msg::Pose & msg)
  */
 inline Eigen::Isometry3d from_msg(const geometry_msgs::msg::Transform & msg)
 {
-  return Eigen::Isometry3d(Eigen::Translation3d(from_msg(msg.translation)) * from_msg(msg.rotation));
+  return Eigen::Isometry3d(
+    Eigen::Translation3d(from_msg(msg.translation)) *
+    from_msg(msg.rotation));
 }
 
 /**
@@ -179,9 +183,9 @@ to_msg(const S & t)
 {
   T ret;
   auto t_sec = std::chrono::duration_cast<std::chrono::seconds>(t);
-  ret.sec = t_sec.count();
-  ret.nanosec = std::chrono::nanoseconds(
-    std::chrono::duration_cast<std::chrono::nanoseconds>(t) - t_sec).count();
+  ret.sec = static_cast<int>(t_sec.count());
+  ret.nanosec = static_cast<unsigned int>(std::chrono::nanoseconds(
+      std::chrono::duration_cast<std::chrono::nanoseconds>(t) - t_sec).count());
   return ret;
 }
 

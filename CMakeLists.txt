@@ -1,21 +1,43 @@
 cmake_minimum_required(VERSION 3.15)
 project(cbr_ros VERSION 0.1.0)
 
-include(CTest)
-include(GoogleTest)
-
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
 # uninstall target has to be before rclcpp otherwise ament exports its own uninstall target
 add_custom_target(
   uninstall
   COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/uninstall.cmake
-)
+  )
+
+# ---------------------------------------------------------------------------------------
+# GLOBAL FLAGS
+# ---------------------------------------------------------------------------------------
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+
+# ---------------------------------------------------------------------------------------
+# OPTIONS
+# ---------------------------------------------------------------------------------------
+
+include(CTest)
+
+# Release type
+set(default_build_type "Release")
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
+  set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE STRING "Choose the type of build." FORCE)
+  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+endif()
+
+
+# ---------------------------------------------------------------------------------------
+# DEPENDENCIES
+# ---------------------------------------------------------------------------------------
 
 find_package(rclcpp REQUIRED)
 find_package(Eigen3 3.3 REQUIRED)
 find_package(cbr_utils REQUIRED)
+
 
 # ---------------------------------------------------------------------------------------
 # TARGETS
@@ -33,6 +55,7 @@ INTERFACE
   Eigen3::Eigen
   cbr_utils::cbr_utils
 )
+
 
 # ---------------------------------------------------------------------------------------
 # INSTALLATION
@@ -53,6 +76,7 @@ install(
   LIBRARY DESTINATION   ${CMAKE_INSTALL_LIBDIR}
   ARCHIVE DESTINATION   ${CMAKE_INSTALL_LIBDIR}
 )
+
 
 # ---------------------------------------------------------------------------------------
 # CMAKE CONFIGURATION
@@ -97,14 +121,16 @@ configure_file(
   IMMEDIATE @ONLY
 )
 
+
 # ---------------------------------------------------------------------------------------
 # TESTING
 # ---------------------------------------------------------------------------------------
 
 if(BUILD_TESTING)
+  include(GoogleTest)
   find_package(GTest REQUIRED)
 
-  add_compile_options(-Wall -Wextra -Wpedantic -Werror)
+  add_compile_options(-Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror)
 
   # Utils
   add_executable(${PROJECT_NAME}_msg_utils test/test_msg_utils.cpp)

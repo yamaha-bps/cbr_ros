@@ -18,7 +18,7 @@ struct MySubParams
   int i1;
   uint32_t i2;
 
-  bool operator==(const MySubParams & o) const { return i1 == o.i1 && i2 == o.i2; }
+  bool operator==(const MySubParams & o) const {return i1 == o.i1 && i2 == o.i2;}
 };
 
 BOOST_HANA_ADAPT_STRUCT(MySubParams, i1, i2);
@@ -27,7 +27,7 @@ struct MyValue
 {
   int i1, i2;
 
-  bool operator==(const MyValue & o) const { return i1 == o.i1 && i2 == o.i2; }
+  bool operator==(const MyValue & o) const {return i1 == o.i1 && i2 == o.i2;}
 };
 
 BOOST_HANA_ADAPT_STRUCT(MyValue, i1, i2);
@@ -55,10 +55,10 @@ struct MyParams
 
   bool operator==(const MyParams & o) const
   {
-    return i == o.i && d == o.d && f == o.f && b1 == o.b1 && b2 == o.b2 && dvec == o.dvec
-        && s == o.s && svec == o.svec && bvec == o.bvec && cvec == o.cvec && ivec == o.ivec
-        && i32vec == o.i32vec && iarr == o.iarr && mvarr == o.mvarr && tuple == o.tuple
-        && sub == o.sub;
+    return i == o.i && d == o.d && f == o.f && b1 == o.b1 && b2 == o.b2 && dvec == o.dvec &&
+           s == o.s && svec == o.svec && bvec == o.bvec && cvec == o.cvec && ivec == o.ivec &&
+           i32vec == o.i32vec && iarr == o.iarr && mvarr == o.mvarr && tuple == o.tuple &&
+           sub == o.sub;
   }
 };
 
@@ -68,7 +68,7 @@ BOOST_HANA_ADAPT_STRUCT(
 inline MyParams prm_example{
   /* .i = */ 2,
   /* .d = */ 5.55,
-  /* .f = */ -3.14,
+  /* .f = */ -3.14f,
   /* .b1 = */ false,
   /* .b2 = */ true,
   /* .s = */ "hello",
@@ -81,11 +81,11 @@ inline MyParams prm_example{
   /* .iarr = */ {15, 20, -20},
   /* .mvarr = */
   {
-    MyValue{/* .i1 = */ 5, /* .i2 = */ 10},
-    MyValue{/* .i1 = */ 25, /* .i2 = */ 35},
+    MyValue{ /* .i1 = */ 5, /* .i2 = */ 10},
+    MyValue{ /* .i1 = */ 25, /* .i2 = */ 35},
   },
   /* .tpl = */ {1, 2},
-  /* .sub = */ MySubParams{/* .i1 = */ 1, /* .i2 = */ 2},
+  /* .sub = */ MySubParams{ /* .i1 = */ 1, /* .i2 = */ 2},
 };
 
 TEST(Prm, Static)
@@ -189,7 +189,7 @@ struct SubValueT
   uint32_t i;
   std::string s;
 
-  bool operator==(const SubValueT & o) const { return subd == o.subd && s == o.s; }
+  bool operator==(const SubValueT & o) const {return subd == o.subd && s == o.s;}
 };
 
 struct ValueT
@@ -211,7 +211,7 @@ struct MasterValueT
   std::vector<ValueT> vec_of_tpl;
   int i0;
 
-  bool operator==(const MasterValueT & o) const { return vec_of_tpl == o.vec_of_tpl && i0 == o.i0; }
+  bool operator==(const MasterValueT & o) const {return vec_of_tpl == o.vec_of_tpl && i0 == o.i0;}
 };
 
 BOOST_HANA_ADAPT_STRUCT(SubValueT, subd, i, s);
@@ -221,9 +221,9 @@ BOOST_HANA_ADAPT_STRUCT(MasterValueT, vec_of_tpl, i0);
 TEST(Prm, UpdateVectorOfStructs)
 {
   std::vector<ValueT> v;
-  v.push_back(ValueT{1, 2, 0.1, 3.12, SubValueT{-1, 100, "str1"}});
-  v.push_back(ValueT{3, 4, 0.2, 6.12, SubValueT{-2, 200, "str2"}});
-  v.push_back(ValueT{5, 6, 0.3, 9.12, SubValueT{-3, 300, "str3"}});
+  v.push_back(ValueT{1, 2, 0.1f, 3.12, SubValueT{-1, 100, "str1"}});
+  v.push_back(ValueT{3, 4, 0.2f, 6.12, SubValueT{-2, 200, "str2"}});
+  v.push_back(ValueT{5, 6, 0.3f, 9.12, SubValueT{-3, 300, "str3"}});
   MasterValueT mv{v, 5};
 
   auto r = cbr::updateParam(
@@ -254,7 +254,9 @@ TEST(Prm, UpdateVectorOfStructs)
   mv = MasterValueT{v, 5};
 
   r = cbr::updateParam(
-    rclcpp::Parameter("namespace.vec_of_tpl.sub.s", std::vector<std::string>{"new", "par", "ams"}), "namespace", mv);
+    rclcpp::Parameter(
+      "namespace.vec_of_tpl.sub.s", std::vector<std::string>{"new", "par",
+        "ams"}), "namespace", mv);
   ASSERT_TRUE(r);
   ASSERT_EQ(mv.vec_of_tpl.size(), 3);
   ASSERT_EQ(mv.vec_of_tpl[0].sub.s, "new");
@@ -265,9 +267,9 @@ TEST(Prm, UpdateVectorOfStructs)
 TEST(Prm, RosVectorOfStructs)
 {
   std::vector<ValueT> v;
-  v.push_back(ValueT{1, 2, 0.1, 3.12, SubValueT{-1, 100, "str1"}});
-  v.push_back(ValueT{3, 4, 0.2, 6.12, SubValueT{-2, 200, "str2"}});
-  v.push_back(ValueT{5, 6, 0.3, 9.12, SubValueT{-3, 300, "str3"}});
+  v.push_back(ValueT{1, 2, 0.1f, 3.12, SubValueT{-1, 100, "str1"}});
+  v.push_back(ValueT{3, 4, 0.2f, 6.12, SubValueT{-2, 200, "str2"}});
+  v.push_back(ValueT{5, 6, 0.3f, 9.12, SubValueT{-3, 300, "str3"}});
 
   MasterValueT mv{v, 5};
 
@@ -291,9 +293,9 @@ TEST(Prm, RosVectorOfStructs)
 TEST(Prm, RosVectorOfStructsInit)
 {
   std::vector<ValueT> v;
-  v.push_back(ValueT{1, 2, 0.1, 3.12, SubValueT{-1, 100, "str1"}});
-  v.push_back(ValueT{3, 4, 0.2, 6.12, SubValueT{-2, 200, "str2"}});
-  v.push_back(ValueT{5, 6, 0.3, 9.12, SubValueT{-3, 300, "str3"}});
+  v.push_back(ValueT{1, 2, 0.1f, 3.12, SubValueT{-1, 100, "str1"}});
+  v.push_back(ValueT{3, 4, 0.2f, 6.12, SubValueT{-2, 200, "str2"}});
+  v.push_back(ValueT{5, 6, 0.3f, 9.12, SubValueT{-3, 300, "str3"}});
 
   MasterValueT mv{v, 5};
 
@@ -317,14 +319,14 @@ TEST(Prm, RosVectorOfStructsInit)
   auto f5 =
     std::find(prms.names.begin(), prms.names.end(), "namespace.vec_of_tpl.d") != prms.names.end();
   ASSERT_TRUE(f5);
-  auto f6 = std::find(prms.names.begin(), prms.names.end(), "namespace.vec_of_tpl.sub.i")
-         != prms.names.end();
+  auto f6 = std::find(prms.names.begin(), prms.names.end(), "namespace.vec_of_tpl.sub.i") !=
+    prms.names.end();
   ASSERT_TRUE(f6);
-  auto f7 = std::find(prms.names.begin(), prms.names.end(), "namespace.vec_of_tpl.sub.subd")
-         != prms.names.end();
+  auto f7 = std::find(prms.names.begin(), prms.names.end(), "namespace.vec_of_tpl.sub.subd") !=
+    prms.names.end();
   ASSERT_TRUE(f7);
-  auto f8 = std::find(prms.names.begin(), prms.names.end(), "namespace.vec_of_tpl.sub.s")
-         != prms.names.end();
+  auto f8 = std::find(prms.names.begin(), prms.names.end(), "namespace.vec_of_tpl.sub.s") !=
+    prms.names.end();
   ASSERT_TRUE(f8);
 
   ASSERT_GE(prms.names.size(), 9u);  // some standard params are always there..
@@ -356,7 +358,7 @@ TEST(Prm, Snippets1)
   node->declare_parameter<std::string>("myprm.s", prm.s);
 
   prm.d = node->get_parameter("myprm.d").as_double();
-  prm.i = node->get_parameter("myprm.i").as_int();
+  prm.i = static_cast<int>(node->get_parameter("myprm.i").as_int());
   prm.s = node->get_parameter("myprm.s").as_string();
 
   rclcpp::shutdown();
